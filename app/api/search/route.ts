@@ -1,5 +1,6 @@
 import { searchCatalog } from "@/lib/catalog"
 import type { NameField, Strictness } from "@/lib/names"
+import { readNote } from "@/lib/note"
 
 export const dynamic = "force-dynamic"
 
@@ -7,14 +8,15 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const field = oneOf(url.searchParams.get("field"), ["mind", "eredeti", "uj"] as const, "mind")
   const strictness = oneOf(url.searchParams.get("strictness"), ["laza", "szoros"] as const, "laza")
+  const reading = readNote(url.searchParams.get("q") ?? "")
   const result = await searchCatalog({
-    query: url.searchParams.get("q") ?? "",
+    query: reading.query,
     field: field as NameField,
     strictness: strictness as Strictness,
-    keresztnev: url.searchParams.get("keresztnev") ?? "",
-    hely: url.searchParams.get("hely") ?? "",
-    evTol: numberOrNull(url.searchParams.get("tol")),
-    evIg: numberOrNull(url.searchParams.get("ig")),
+    keresztnev: url.searchParams.get("keresztnev") || reading.keresztnev,
+    hely: url.searchParams.get("hely") || reading.hely,
+    evTol: numberOrNull(url.searchParams.get("tol")) ?? reading.evTol,
+    evIg: numberOrNull(url.searchParams.get("ig")) ?? reading.evIg,
   })
   return Response.json(result, {
     headers: { "Cache-Control": "no-store" },

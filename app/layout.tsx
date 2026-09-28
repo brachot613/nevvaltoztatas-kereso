@@ -17,7 +17,7 @@ const serif = Source_Serif_4({
 export const metadata: Metadata = {
   title: "Névkereső",
   description:
-    "Laza keresés eredeti és felvett vezetéknévre a MACSE élő névjegyzékében és Szentiványi Zoltán 1800–1893-as kötetében.",
+    "Laza keresés eredeti és felvett vezetéknévre. Egy rövid mondatból is kiolvassa a nevet, a helyet és az évet.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

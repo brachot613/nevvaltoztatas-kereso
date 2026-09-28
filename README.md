@@ -7,6 +7,8 @@ Egy mező, két vezetéknév. Az eredeti és a felvett névre keres, betűre pon
 
 A laza egyezés összevonja az ékezetet, a `cz`/`c`, a `w`/`v` és a Weiss/Weisz párost, és még egy-két eltérő betűt is elfogad. Két szó esetén az egyik az eredeti név, a másik a felvett.
 
+Egy rövid mondatot is meg lehet adni, például `Kohn Adolf Csacza 1887` vagy `Kohnból Korányi lett`. A nevet, a keresztnevet, a helyet és az évet a böngésző olvassa ki, a jegyzet nem megy el sehova. A betűeltérést nem egy nyelvi modell találja ki, hanem a laza egyezés.
+
 ## Futtatás
 
 ```bash

@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react"
 import type { SearchResponse } from "@/lib/catalog"
 import type { NameField, Strictness } from "@/lib/names"
+import { readNote } from "@/lib/note"
 import { cn } from "@/lib/utils"
 
-const EXAMPLES = ["Kohn", "Weiss", "Aczél", "Korányi"]
+const EXAMPLES = ["Kohn", "Weiss", "Aczél", "Kohnból Korányi lett"]
+
+type Drop = { q: string; keresztnev: boolean; hely: boolean; ev: boolean }
 
 type Status = "idle" | "loading" | "done" | "error"
 
@@ -21,20 +24,31 @@ export function SearchApp() {
   const [status, setStatus] = useState<Status>("idle")
   const [message, setMessage] = useState<string | null>(null)
   const [resultKey, setResultKey] = useState("")
+  const [drop, setDrop] = useState<Drop>({ q: "", keresztnev: false, hely: false, ev: false })
 
   const trimmedQuery = query.trim()
-  const searching = trimmedQuery.length >= 2
+  const reading = readNote(trimmedQuery)
+  const noteOff = drop.q === trimmedQuery ? drop : { q: trimmedQuery, keresztnev: false, hely: false, ev: false }
+  const manualYear = Boolean(tol.trim() || ig.trim())
+  const effective = {
+    q: reading.query.trim(),
+    keresztnev: keresztnev.trim() || (noteOff.keresztnev ? "" : reading.keresztnev),
+    hely: hely.trim() || (noteOff.hely ? "" : reading.hely),
+    tol: manualYear || noteOff.ev || reading.evTol == null ? tol.trim() : String(reading.evTol),
+    ig: manualYear || noteOff.ev || reading.evIg == null ? ig.trim() : String(reading.evIg),
+  }
+  const searching = effective.q.length >= 2
   const requestKey = JSON.stringify({
-    q: trimmedQuery,
+    q: effective.q,
     field,
     strictness,
-    keresztnev: keresztnev.trim(),
-    hely: hely.trim(),
-    tol: tol.trim(),
-    ig: ig.trim(),
+    keresztnev: effective.keresztnev,
+    hely: effective.hely,
+    tol: effective.tol,
+    ig: effective.ig,
   })
   const fresh = result != null && resultKey === requestKey
-  const filtersOn = Boolean(keresztnev.trim() || hely.trim() || tol.trim() || ig.trim())
+  const filtersOn = Boolean(effective.keresztnev || effective.hely || effective.tol || effective.ig)
 
   useEffect(() => {
     if (!searching) return
@@ -48,20 +62,19 @@ export function SearchApp() {
     }
     // Filters are part of the search, so they retrigger it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searching, query, field, strictness, keresztnev, hely, tol, ig])
+  }, [searching, effective.q, field, strictness, effective.keresztnev, effective.hely, effective.tol, effective.ig])
 
   async function runSearch(signal: AbortSignal) {
-    const trimmed = query.trim()
     setStatus("loading")
     setMessage(null)
     const params = new URLSearchParams({
-      q: trimmed,
+      q: effective.q,
       field,
       strictness,
-      keresztnev,
-      hely,
-      tol,
-      ig,
+      keresztnev: effective.keresztnev,
+      hely: effective.hely,
+      tol: effective.tol,
+      ig: effective.ig,
     })
     try {
       const response = await fetch(`/api/search?${params}`, { signal, cache: "no-store" })
@@ -92,7 +105,7 @@ export function SearchApp() {
             Névkereső
           </h1>
           <p className="max-w-xl text-lg leading-8 text-muted-foreground">
-            Eredeti és felvett vezetéknév, egy mezőben. Nem kell betűre pontosan egyeznie.
+            Egy név, vagy egy rövid mondat. Nem kell betűre pontosan egyeznie.
           </p>
         </header>
 
@@ -105,18 +118,30 @@ export function SearchApp() {
           }}
         >
           <label htmlFor="q" className="sr-only">
-            Vezetéknév
+            Név vagy rövid mondat
           </label>
           <div className="flex items-end gap-4 border-b-2 border-foreground transition-colors focus-within:border-seal">
-            <input
+            <textarea
               id="q"
+              rows={trimmedQuery.length > 42 ? 2 : 1}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Kohn"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault()
+                  event.currentTarget.form?.requestSubmit()
+                }
+              }}
+              placeholder="Kohn Adolf, Csacza"
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
-              className="h-16 min-w-0 flex-1 bg-transparent font-serif text-4xl outline-none placeholder:text-muted-foreground/40 sm:text-5xl"
+              className={cn(
+                "min-w-0 w-full flex-1 resize-none bg-transparent font-serif outline-none placeholder:text-muted-foreground/40",
+                trimmedQuery.length > 22
+                  ? "py-2 text-2xl leading-snug sm:text-3xl"
+                  : "h-16 text-4xl leading-none sm:text-5xl",
+              )}
             />
             <button
               type="submit"
@@ -125,6 +150,18 @@ export function SearchApp() {
               Keresés
             </button>
           </div>
+
+          {reading.active && (
+            <Reading
+              query={reading.query}
+              ordered={reading.ordered}
+              keresztnev={!keresztnev.trim() && !noteOff.keresztnev ? reading.keresztnev : ""}
+              hely={!hely.trim() && !noteOff.hely ? reading.hely : ""}
+              evTol={manualYear || noteOff.ev ? null : reading.evTol}
+              evIg={manualYear || noteOff.ev ? null : reading.evIg}
+              onDrop={(part) => setDrop({ ...noteOff, [part]: true })}
+            />
+          )}
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <TextChoice
@@ -154,10 +191,32 @@ export function SearchApp() {
               {filtersOn ? <span className="text-seal"> · bekapcsolva</span> : null}
             </summary>
             <div className="mt-4 grid gap-3 sm:grid-cols-4">
-              <Field label="Keresztnév" value={keresztnev} onChange={setKeresztnev} />
-              <Field label="Hely" value={hely} onChange={setHely} />
-              <Field label="Évtől" value={tol} onChange={setTol} numeric />
-              <Field label="Évig" value={ig} onChange={setIg} numeric />
+              <Field
+                label="Keresztnév"
+                value={keresztnev}
+                onChange={setKeresztnev}
+                placeholder={noteOff.keresztnev ? "" : reading.keresztnev}
+              />
+              <Field
+                label="Hely"
+                value={hely}
+                onChange={setHely}
+                placeholder={noteOff.hely ? "" : reading.hely}
+              />
+              <Field
+                label="Évtől"
+                value={tol}
+                onChange={setTol}
+                numeric
+                placeholder={noteOff.ev || reading.evTol == null ? "" : String(reading.evTol)}
+              />
+              <Field
+                label="Évig"
+                value={ig}
+                onChange={setIg}
+                numeric
+                placeholder={noteOff.ev || reading.evIg == null ? "" : String(reading.evIg)}
+              />
             </div>
           </details>
         </form>
@@ -188,7 +247,10 @@ export function SearchApp() {
                 1815–1955 közötti névváltoztatásai élőben jönnek. Mellette Szentiványi Zoltán
                 1800–1893-as kötete, laza egyezéssel: ékezet, cz/c, w/v, Weiss/Weisz, egy-két eltérő betű.
               </p>
-              <p>Két szó esetén az egyik az eredeti név, a másik a felvett, a sorrend mindegy.</p>
+              <p>
+                Két szó esetén az egyik az eredeti név, a másik a felvett, a sorrend mindegy. Egy
+                mondatból a keresztnevet, a helyet és az évet is kiolvasom, itt a gépen.
+              </p>
             </div>
           </section>
         )}
@@ -350,6 +412,76 @@ function HitBody({ hit }: { hit: SearchResponse["hits"][number] }) {
   )
 }
 
+function Reading({
+  query,
+  ordered,
+  keresztnev,
+  hely,
+  evTol,
+  evIg,
+  onDrop,
+}: {
+  query: string
+  ordered: boolean
+  keresztnev: string
+  hely: string
+  evTol: number | null
+  evIg: number | null
+  onDrop: (part: "keresztnev" | "hely" | "ev") => void
+}) {
+  const names = query.split(" ")
+  const nameText = ordered && names.length === 2 ? `${names[0]} → ${names[1]}` : query
+  const year = evTol == null ? "" : evTol === evIg ? String(evTol) : `${evTol}–${evIg}`
+  return (
+    <p className="mt-4 text-sm leading-6 text-muted-foreground">
+      Ebből olvasom: <span className="font-serif text-base text-foreground">{nameText}</span>
+      {keresztnev && (
+        <>
+          {" · "}
+          <ReadingPart label={`${keresztnev} nélkül`} onClick={() => onDrop("keresztnev")}>
+            {keresztnev}
+          </ReadingPart>
+        </>
+      )}
+      {hely && (
+        <>
+          {" · "}
+          <ReadingPart label={`${hely} nélkül`} onClick={() => onDrop("hely")}>
+            {hely}
+          </ReadingPart>
+        </>
+      )}
+      {year && (
+        <>
+          {" · "}
+          <ReadingPart label={`${year} nélkül`} onClick={() => onDrop("ev")}>
+            {year}
+          </ReadingPart>
+        </>
+      )}
+    </p>
+  )
+}
+
+function ReadingPart({
+  children,
+  label,
+  onClick,
+}: {
+  children: string
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button type="button" onClick={onClick} aria-label={label} className="text-foreground">
+      {children}
+      <span aria-hidden className="ml-1 text-muted-foreground">
+        ×
+      </span>
+    </button>
+  )
+}
+
 function NameLine({
   label,
   name,
@@ -416,11 +548,13 @@ function Field({
   value,
   onChange,
   numeric = false,
+  placeholder = "",
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   numeric?: boolean
+  placeholder?: string
 }) {
   const id = `szuro-${label}`
   return (
@@ -429,9 +563,10 @@ function Field({
       <input
         id={id}
         value={value}
+        placeholder={placeholder}
         inputMode={numeric ? "numeric" : "text"}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 border-b border-border bg-transparent outline-none focus:border-foreground"
+        className="h-10 border-b border-border bg-transparent outline-none placeholder:text-muted-foreground/70 focus:border-foreground"
         autoComplete="off"
       />
     </label>
