@@ -77,6 +77,7 @@ export function strictKey(value: string): string {
   text = text.normalize("NFD").replace(/\p{M}/gu, "")
   text = text.replace(/sch/g, "s")
   text = text.replace(/cz/g, "c")
+  text = text.replace(/ts/g, "cs")
   text = text.replace(/ck/g, "k")
   text = text.replace(/ph/g, "f")
   text = text.replace(/w/g, "v")

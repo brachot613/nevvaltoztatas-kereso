@@ -245,7 +245,7 @@ export function SearchApp() {
                   MACSE
                 </a>{" "}
                 1815–1955 közötti névváltoztatásai élőben jönnek. Mellette Szentiványi Zoltán
-                1800–1893-as kötete, laza egyezéssel: ékezet, cz/c, w/v, Weiss/Weisz, egy-két eltérő betű.
+                1800–1893-as kötete, laza egyezéssel: ékezet, cz/c, cs/ts, w/v, a név végi i/y, Weiss/Weisz.
               </p>
               <p>
                 Két szó esetén az egyik az eredeti név, a másik a felvett, a sorrend mindegy. Egy

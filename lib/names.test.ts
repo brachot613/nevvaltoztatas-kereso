@@ -63,6 +63,11 @@ test("orthography folds accents, cz, w/v, y/i and Weiss/Weisz", () => {
   assert.equal(looseKey("Müller"), looseKey("Mueller"))
   assert.equal(looseKey("Bauer"), "bauer")
   assert.equal(strictKey("Schwarcz"), "svarc")
+  assert.equal(strictKey("Kováts"), strictKey("Kovács"))
+  assert.equal(strictKey("Tsászár"), strictKey("Császár"))
+  assert.equal(strictKey("Nagy"), strictKey("Nagi"))
+  assert.equal(strictKey("Korányi"), strictKey("Korányy"))
+  assert.equal(strictKey("Wolf"), strictKey("Volf"))
   assert.equal(damerau("kohn", "khon"), 1)
 })
 
@@ -110,6 +115,20 @@ test("loose spelling still finds Aczél, Weisz and Ábrányi", () => {
     strictness: "szoros",
   })
   assert.equal(abranyi.shown[0]?.entry.uj, "Ábrányi")
+
+  const ending = searchNames(indexed, {
+    query: "Korányy",
+    field: "uj",
+    corpus: "mind",
+    strictness: "szoros",
+  })
+  assert.equal(ending.shown[0]?.entry.uj, "Korányi")
+
+  const cst = searchNames(
+    indexEntries([{ id: "k", corpus: "19", uj: "Kovács", eredeti: "Klein" }]),
+    { query: "Kováts", field: "uj", corpus: "mind", strictness: "szoros" },
+  )
+  assert.equal(cst.shown[0]?.entry.uj, "Kovács")
 })
 
 test("two names match original and adopted in either order", () => {

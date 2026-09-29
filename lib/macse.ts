@@ -59,17 +59,21 @@ export function macseVariants(raw: string): string[] {
   }
 
   add(trimmed)
+  add(swapEndingIY(trimmed))
+  if (/cs/i.test(trimmed)) add(swapDigraph(trimmed, "cs", "ts"))
+  if (/ts/i.test(trimmed)) add(swapDigraph(trimmed, "ts", "cs"))
+  if (/w/i.test(trimmed)) add(swapLetter(trimmed, /w/gi, "v"))
+  else if (/v/i.test(trimmed)) add(swapLetter(trimmed, /v/gi, "w"))
   if (/cz/i.test(trimmed)) add(trimmed.replace(/cz/gi, "c"))
-  else if (/c/i.test(trimmed)) {
+  else if (/c/i.test(trimmed) && !/cs/i.test(trimmed)) {
     add(trimmed.replace(/c/i, (letter) => (letter === "C" ? "Cz" : "cz")))
   }
-  const hasDoubleS = /ss/i.test(trimmed) || /sz/i.test(trimmed)
   if (/ss/i.test(trimmed)) add(trimmed.replace(/ss/gi, "sz"))
   if (/sz/i.test(trimmed)) add(trimmed.replace(/sz/gi, "ss"))
-  if (!hasDoubleS && /w/i.test(trimmed)) add(swapLetter(trimmed, /w/gi, "v"))
-  else if (!hasDoubleS && /v/i.test(trimmed)) add(swapLetter(trimmed, /v/gi, "w"))
+  const doubled = found.find((item) => item !== trimmed && (/ss/i.test(item) || /sz/i.test(item)))
+  if (doubled && /w/i.test(doubled)) add(swapLetter(doubled, /w/gi, "v"))
   if (/sch/i.test(trimmed)) add(trimmed.replace(/sch/gi, "s"))
-  return found.slice(0, 3)
+  return found.slice(0, 4)
 }
 
 export function macseRequests(options: MacseQuery): MacseRequest[] {
@@ -89,11 +93,13 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
       detailed(tokens[0], tokens[1], given, place, from, to),
       detailed(tokens[1], tokens[0], given, place, from, to),
     ]
-    const variant = macseVariants(tokens[0]).find((item) => item !== tokens[0])
-    if (options.strictness === "laza" && variant) {
-      requests.push(detailed(variant, tokens[1], given, place, from, to))
+    if (options.strictness === "laza") {
+      const alt0 = macseVariants(tokens[0]).find((item) => item !== tokens[0])
+      const alt1 = macseVariants(tokens[1]).find((item) => item !== tokens[1])
+      if (alt0) requests.push(detailed(alt0, tokens[1], given, place, from, to))
+      if (alt1) requests.push(detailed(tokens[0], alt1, given, place, from, to))
     }
-    return requests.slice(0, 3)
+    return requests.slice(0, 4)
   }
 
   const seeds = tokens.length > 1 ? tokens : [options.query.trim()].filter(Boolean)
@@ -110,21 +116,21 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
   }
 
   if (!detail) {
-    return names.slice(0, 3).map((name) => ({
+    return names.slice(0, 4).map((name) => ({
       mode: "1",
       lname: name,
       fname: given,
     }))
   }
 
-  return names.slice(0, 3).flatMap((name) => {
+  return names.slice(0, 4).flatMap((name) => {
     if (options.field === "uj") return [detailed("", name, given, place, from, to)]
     if (options.field === "eredeti") return [detailed(name, "", given, place, from, to)]
     return [
       detailed(name, "", given, place, from, to),
       detailed("", name, given, place, from, to),
     ]
-  }).slice(0, 4)
+  }).slice(0, 8)
 }
 
 export function parseMacseHtml(html: string): MacsePage {
@@ -227,6 +233,21 @@ async function collectMacse(request: MacseRequest): Promise<MacsePage & { comple
     complete = false
   }
   return { records, total: first.total, tooMany: null, complete }
+}
+
+function swapEndingIY(value: string): string {
+  const last = value.slice(-1)
+  if (!/[iy]/i.test(last)) return value
+  const flipped = last.toLowerCase() === "i" ? "y" : "i"
+  const next = last === last.toUpperCase() ? flipped.toUpperCase() : flipped
+  return value.slice(0, -1) + next
+}
+
+function swapDigraph(value: string, from: string, to: string): string {
+  return value.replace(new RegExp(from, "gi"), (match) => {
+    const head = match[0] === match[0].toUpperCase() ? to[0].toUpperCase() : to[0].toLowerCase()
+    return head + to.slice(1)
+  })
 }
 
 function swapLetter(value: string, pattern: RegExp, next: string): string {

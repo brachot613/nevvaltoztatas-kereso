@@ -37,10 +37,13 @@ test("too many results become a refine signal, not rows", () => {
   assert.equal(page.records.length, 0)
 })
 
-test("spelling variants cover cz and Weiss without duplicating accents", () => {
+test("spelling variants cover cz, cs/ts, final i/y, w/v and Weiss", () => {
   assert.deepEqual(macseVariants("Aczél"), ["Aczél", "Acél"])
-  assert.deepEqual(macseVariants("Weiss"), ["Weiss", "Weisz"])
-  assert.deepEqual(macseVariants("Korányi"), ["Korányi"])
+  assert.deepEqual(macseVariants("Korányi"), ["Korányi", "Korányy"])
+  assert.deepEqual(macseVariants("Kovács"), ["Kovács", "Kováts", "Kowács"])
+  assert.deepEqual(macseVariants("Wolf"), ["Wolf", "Volf"])
+  assert.ok(macseVariants("Weiss").includes("Weisz"))
+  assert.ok(macseVariants("Weiss").includes("Veiss"))
 })
 
 test("page count covers every MACSE page until the cap", () => {
@@ -57,7 +60,8 @@ test("a single surname searches both fields in one MACSE request", () => {
   })
   assert.equal(requests[0]?.mode, "1")
   assert.equal(requests[0]?.lname, "Weiss")
-  assert.equal(requests[1]?.lname, "Weisz")
+  assert.ok(requests.some((request) => request.lname === "Weisz"))
+  assert.ok(requests.some((request) => request.lname === "Veiss"))
 })
 
 test("two surnames on one side are searched as separate words", () => {
