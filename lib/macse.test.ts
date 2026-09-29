@@ -52,6 +52,28 @@ test("page count covers every MACSE page until the cap", () => {
   assert.equal(macsePageCount(null, 10), 1)
 })
 
+test("a town or county without a surname searches residences", () => {
+  const town = macseRequests({
+    query: "",
+    field: "mind",
+    strictness: "laza",
+    hely: "Szeged",
+  })
+  assert.equal(town.length, 1)
+  assert.equal(town[0]?.residence, "Szeged")
+  assert.equal(town[0]?.lname ?? "", "")
+
+  const county = macseRequests({
+    query: "",
+    field: "mind",
+    strictness: "laza",
+    megye: "Zala",
+  })
+  const towns = county.map((request) => request.residence)
+  assert.ok(towns.includes("Nagykanizsa"))
+  assert.ok(towns.includes("Zalaegerszeg"))
+})
+
 test("a single surname searches both fields in one MACSE request", () => {
   const requests = macseRequests({
     query: "Weiss",

@@ -1,3 +1,5 @@
+import { sameCounty, sameTown } from "./places.ts"
+
 export type Corpus = "19" | "20"
 export type NameField = "mind" | "eredeti" | "uj"
 export type Strictness = "laza" | "szoros"
@@ -10,6 +12,7 @@ export type NameEntry = {
   eredeti: string
   keresztnev?: string
   hely?: string
+  megye?: string
   reszlet?: string
   ev?: number | null
   hivatkozas?: string
@@ -49,6 +52,7 @@ export type SearchOptions = {
   strictness: Strictness
   keresztnev?: string
   hely?: string
+  megye?: string
   evTol?: number | null
   evIg?: number | null
   limit?: number
@@ -303,8 +307,26 @@ function passesFilters(entry: IndexedEntry, options: SearchOptions): boolean {
   if (options.evTol != null && (entry.ev == null || entry.ev < options.evTol)) return false
   if (options.evIg != null && (entry.ev == null || entry.ev > options.evIg)) return false
   if (!includesFolded(entry, options.keresztnev, "keresztnev")) return false
-  if (!includesFolded(entry, options.hely, "hely")) return false
+  if (options.hely?.trim() && !sameTown(entry.hely ?? "", options.hely)) return false
+  if (options.megye?.trim() && !sameCounty(entry.megye ?? "", options.megye)) return false
   return true
+}
+
+export function searchPlaces(entries: IndexedEntry[], options: SearchOptions): SearchResult {
+  const hits: SearchHit[] = []
+  for (const entry of entries) {
+    if (!passesFilters(entry, options)) continue
+    hits.push({ entry, score: 40, hits: [] })
+  }
+  hits.sort((left, right) => (right.entry.ev ?? 0) - (left.entry.ev ?? 0))
+  const limit = options.limit ?? 2000
+  return {
+    total: hits.length,
+    shown: hits.slice(0, limit),
+    compared: { strict: "", loose: "" },
+    mode: "single",
+    tooShort: false,
+  }
 }
 
 function includesFolded(

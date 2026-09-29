@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     strictness: strictness as Strictness,
     keresztnev: url.searchParams.get("keresztnev") || reading.keresztnev,
     hely: url.searchParams.get("hely") || reading.hely,
+    megye: url.searchParams.get("megye") ?? "",
     evTol: numberOrNull(url.searchParams.get("tol")) ?? reading.evTol,
     evIg: numberOrNull(url.searchParams.get("ig")) ?? reading.evIg,
   })

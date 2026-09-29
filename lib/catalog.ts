@@ -6,6 +6,7 @@ import {
   describeHit,
   indexEntries,
   searchNames,
+  searchPlaces,
   strictKey,
   type IndexedEntry,
   type NameEntry,
@@ -13,6 +14,7 @@ import {
   type SearchHit,
   type Strictness,
 } from "./names.ts"
+import { countyOfTown, sameCounty, sameTown } from "./places.ts"
 
 export type ResultSource = "macse" | "szentivanyi"
 
@@ -52,6 +54,7 @@ type CatalogQuery = {
   strictness: Strictness
   keresztnev?: string
   hely?: string
+  megye?: string
   evTol?: number | null
   evIg?: number | null
 }
@@ -60,8 +63,14 @@ let indexed: Promise<IndexedEntry[]> | null = null
 
 export async function searchCatalog(options: CatalogQuery): Promise<SearchResponse> {
   const list = await loadSzentivanyi()
-  const local = searchNames(list, { ...options, corpus: "mind", limit: 2000 })
-  if (local.tooShort) {
+  const named = strictKey(options.query).length >= 2
+  const located = Boolean(options.hely?.trim() || options.megye?.trim())
+  const local = named
+    ? searchNames(list, { ...options, corpus: "mind", limit: 2000 })
+    : located
+      ? searchPlaces(list, { ...options, corpus: "mind", limit: 2000 })
+      : searchNames(list, { ...options, corpus: "mind", limit: 2000 })
+  if (!named && !located) {
     return {
       hits: [],
       tooShort: true,
@@ -72,6 +81,7 @@ export async function searchCatalog(options: CatalogQuery): Promise<SearchRespon
   }
 
   const remote = await searchMacse(options)
+  remote.records = remote.records.filter((record) => fitsPlace(record.hely, options))
   return {
     hits: combineHits(local.shown, remote.records, options),
     tooShort: false,
@@ -240,6 +250,12 @@ function compatible(left: ResultHit, right: ResultHit): boolean {
   const rightGiven = strictKey(right.keresztnev)
   if (leftGiven && rightGiven && leftGiven !== rightGiven) return false
   if (left.ev != null && right.ev != null && left.ev !== right.ev) return false
+  return true
+}
+
+function fitsPlace(town: string, options: CatalogQuery): boolean {
+  if (options.hely?.trim() && !sameTown(town, options.hely)) return false
+  if (options.megye?.trim() && !sameCounty(countyOfTown(town), options.megye)) return false
   return true
 }
 

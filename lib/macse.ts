@@ -1,4 +1,5 @@
 import type { NameField, Strictness } from "./names.ts"
+import { townsForCounty } from "./places.ts"
 
 const ENDPOINT = "https://macse.hu/db/names/names.php"
 const USER_AGENT = "Nevkereso/1.0 (egy kereses, nem tarolas)"
@@ -28,6 +29,7 @@ export type MacseQuery = {
   strictness: Strictness
   keresztnev?: string
   hely?: string
+  megye?: string
   evTol?: number | null
   evIg?: number | null
 }
@@ -79,8 +81,16 @@ export function macseVariants(raw: string): string[] {
 export function macseRequests(options: MacseQuery): MacseRequest[] {
   const given = blank(options.keresztnev)
   const place = blank(options.hely)
+  const county = blank(options.megye)
   const from = yearParam(options.evTol)
   const to = yearParam(options.evIg)
+  if (options.query.trim().length < 2) {
+    if (!place && !county) return []
+    if (place) return [detailed("", "", given, place, from, to)]
+    return townsForCounty(county)
+      .slice(0, 6)
+      .map((town) => detailed("", "", given, town, from, to))
+  }
   const detail = Boolean(place || from || to || options.field !== "mind")
   const tokens = options.query
     .trim()
@@ -178,7 +188,9 @@ export async function searchMacse(
   if (requests.length === 0) return { records: [], total: null, tooMany: null, error: null, complete: true }
 
   try {
-    const pages = await Promise.all(requests.map((request) => collectMacse(request)))
+    const manyTowns = options.query.trim().length < 2 && requests.length > 1
+    const pageCap = manyTowns ? 4 : MAX_MACSE_PAGES
+    const pages = await Promise.all(requests.map((request) => collectMacse(request, pageCap)))
     const records: MacseRecord[] = []
     const seen = new Set<string>()
     let total: number | null = null
@@ -212,12 +224,15 @@ export async function searchMacse(
   }
 }
 
-async function collectMacse(request: MacseRequest): Promise<MacsePage & { complete: boolean }> {
+async function collectMacse(
+  request: MacseRequest,
+  maxPages = MAX_MACSE_PAGES,
+): Promise<MacsePage & { complete: boolean }> {
   const first = await postMacse(request, 1)
   if (first.tooMany || first.records.length === 0 || first.total == null) {
     return { ...first, complete: first.tooMany == null && first.records.length > 0 }
   }
-  const last = macsePageCount(first.total, first.records.length)
+  const last = macsePageCount(first.total, first.records.length, maxPages)
   const full = Math.ceil(first.total / first.records.length)
   if (last === 1) return { ...first, complete: true }
   const records = [...first.records]

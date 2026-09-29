@@ -18,6 +18,7 @@ export function SearchApp() {
   const [strictness, setStrictness] = useState<Strictness>("laza")
   const [keresztnev, setKeresztnev] = useState("")
   const [hely, setHely] = useState("")
+  const [megye, setMegye] = useState("")
   const [tol, setTol] = useState("")
   const [ig, setIg] = useState("")
   const [result, setResult] = useState<SearchResponse | null>(null)
@@ -34,21 +35,23 @@ export function SearchApp() {
     q: reading.query.trim(),
     keresztnev: keresztnev.trim() || (noteOff.keresztnev ? "" : reading.keresztnev),
     hely: hely.trim() || (noteOff.hely ? "" : reading.hely),
+    megye: megye.trim(),
     tol: manualYear || noteOff.ev || reading.evTol == null ? tol.trim() : String(reading.evTol),
     ig: manualYear || noteOff.ev || reading.evIg == null ? ig.trim() : String(reading.evIg),
   }
-  const searching = effective.q.length >= 2
+  const searching = effective.q.length >= 2 || Boolean(effective.hely || effective.megye)
   const requestKey = JSON.stringify({
     q: effective.q,
     field,
     strictness,
     keresztnev: effective.keresztnev,
     hely: effective.hely,
+    megye: effective.megye,
     tol: effective.tol,
     ig: effective.ig,
   })
   const fresh = result != null && resultKey === requestKey
-  const filtersOn = Boolean(effective.keresztnev || effective.hely || effective.tol || effective.ig)
+  const filtersOn = Boolean(effective.keresztnev || effective.hely || effective.megye || effective.tol || effective.ig)
 
   useEffect(() => {
     if (!searching) return
@@ -62,7 +65,7 @@ export function SearchApp() {
     }
     // Filters are part of the search, so they retrigger it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searching, effective.q, field, strictness, effective.keresztnev, effective.hely, effective.tol, effective.ig])
+  }, [searching, effective.q, field, strictness, effective.keresztnev, effective.hely, effective.megye, effective.tol, effective.ig])
 
   async function runSearch(signal: AbortSignal) {
     setStatus("loading")
@@ -73,6 +76,7 @@ export function SearchApp() {
       strictness,
       keresztnev: effective.keresztnev,
       hely: effective.hely,
+      megye: effective.megye,
       tol: effective.tol,
       ig: effective.ig,
     })
@@ -198,23 +202,27 @@ export function SearchApp() {
             />
           </div>
 
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Field
+              label="Város"
+              value={hely}
+              onChange={setHely}
+              placeholder={noteOff.hely ? "" : reading.hely || "Szeged"}
+            />
+            <Field label="Megye" value={megye} onChange={setMegye} placeholder="Zala" />
+          </div>
+
           <details className="mt-5">
             <summary className="cursor-pointer text-sm text-muted-foreground">
               Szűrés
               {filtersOn ? <span className="text-seal"> ·</span> : null}
             </summary>
-            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <Field
                 label="Keresztnév"
                 value={keresztnev}
                 onChange={setKeresztnev}
                 placeholder={noteOff.keresztnev ? "" : reading.keresztnev}
-              />
-              <Field
-                label="Hely"
-                value={hely}
-                onChange={setHely}
-                placeholder={noteOff.hely ? "" : reading.hely}
               />
               <Field
                 label="Évtől"

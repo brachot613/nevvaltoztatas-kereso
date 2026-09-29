@@ -7,6 +7,7 @@ import {
   indexEntries,
   looseKey,
   searchNames,
+  searchPlaces,
   strictKey,
   type NameEntry,
 } from "./names.ts"
@@ -19,6 +20,7 @@ const rows: NameEntry[] = [
     eredeti: "Kohn",
     keresztnev: "Adolf",
     hely: "Csacza",
+    megye: "Trencsén",
     ev: 1887,
     hivatkozas: "BM. 20939/87.",
   },
@@ -69,6 +71,36 @@ test("orthography folds accents, cz, w/v, y/i and Weiss/Weisz", () => {
   assert.equal(strictKey("Korányi"), strictKey("Korányy"))
   assert.equal(strictKey("Wolf"), strictKey("Volf"))
   assert.equal(damerau("kohn", "khon"), 1)
+})
+
+test("a town or a county does not need a surname", () => {
+  const town = searchPlaces(indexed, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    hely: "Csacza",
+  })
+  assert.equal(town.total, 1)
+  assert.equal(town.shown[0]?.entry.uj, "Korányi")
+
+  const county = searchPlaces(indexed, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    megye: "Trencsén",
+  })
+  assert.equal(county.total, 1)
+
+  const empty = searchPlaces(indexed, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    megye: "Zala",
+  })
+  assert.equal(empty.total, 0)
 })
 
 test("Kohn finds the adopted name and not the other field", () => {
