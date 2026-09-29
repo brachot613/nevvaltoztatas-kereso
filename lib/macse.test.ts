@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { combineHits } from "./catalog.ts"
-import { macseRequests, macseVariants, parseMacseHtml } from "./macse.ts"
+import { macsePageCount, macseRequests, macseVariants, parseMacseHtml } from "./macse.ts"
 import { strictKey, type SearchHit } from "./names.ts"
 
 const RECORD = `
@@ -41,6 +41,12 @@ test("spelling variants cover cz and Weiss without duplicating accents", () => {
   assert.deepEqual(macseVariants("Aczél"), ["Aczél", "Acél"])
   assert.deepEqual(macseVariants("Weiss"), ["Weiss", "Weisz"])
   assert.deepEqual(macseVariants("Korányi"), ["Korányi"])
+})
+
+test("page count covers every MACSE page until the cap", () => {
+  assert.equal(macsePageCount(279, 10), 28)
+  assert.equal(macsePageCount(6, 10), 1)
+  assert.equal(macsePageCount(null, 10), 1)
 })
 
 test("a single surname searches both fields in one MACSE request", () => {

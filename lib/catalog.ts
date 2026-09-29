@@ -41,6 +41,7 @@ export type SearchResponse = {
     tooMany: number | null
     error: string | null
     fetched: number
+    complete: boolean
   }
   szentivanyi: { matched: number }
 }
@@ -59,20 +60,20 @@ let indexed: Promise<IndexedEntry[]> | null = null
 
 export async function searchCatalog(options: CatalogQuery): Promise<SearchResponse> {
   const list = await loadSzentivanyi()
-  const local = searchNames(list, { ...options, corpus: "mind", limit: 40 })
+  const local = searchNames(list, { ...options, corpus: "mind", limit: 2000 })
   if (local.tooShort) {
     return {
       hits: [],
       tooShort: true,
       compared: local.compared,
-      macse: { total: null, tooMany: null, error: null, fetched: 0 },
+      macse: { total: null, tooMany: null, error: null, fetched: 0, complete: true },
       szentivanyi: { matched: 0 },
     }
   }
 
   const remote = await searchMacse(options)
   return {
-    hits: combineHits(local.shown, remote.records, options).slice(0, 40),
+    hits: combineHits(local.shown, remote.records, options),
     tooShort: false,
     compared: local.compared,
     macse: {
@@ -80,6 +81,7 @@ export async function searchCatalog(options: CatalogQuery): Promise<SearchRespon
       tooMany: remote.tooMany,
       error: remote.error,
       fetched: remote.records.length,
+      complete: remote.complete,
     },
     szentivanyi: { matched: local.total },
   }
@@ -102,7 +104,11 @@ export function combineHits(
     hivatkozas: record.hivatkozas,
   }))
   const remoteById = new Map(remote.map((record, index) => [`macse-${index + 1}`, record]))
-  const scored = searchNames(indexEntries(remoteEntries), { ...options, corpus: "mind", limit: 80 })
+  const scored = searchNames(indexEntries(remoteEntries), {
+    ...options,
+    corpus: "mind",
+    limit: Math.max(remoteEntries.length, 1),
+  })
   const scoredIds = new Set(scored.shown.map((hit) => hit.entry.id))
 
   const merged = new Map<string, ResultHit>()

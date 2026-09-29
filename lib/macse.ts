@@ -158,21 +158,32 @@ export function parseMacseHtml(html: string): MacsePage {
   return { records, total, tooMany: null }
 }
 
-export async function searchMacse(options: MacseQuery): Promise<MacsePage & { error: string | null }> {
+const MAX_MACSE_PAGES = 40
+
+export function macsePageCount(total: number | null, firstCount: number, maxPages = MAX_MACSE_PAGES): number {
+  if (total == null || firstCount <= 0 || total <= firstCount) return 1
+  return Math.min(maxPages, Math.ceil(total / firstCount))
+}
+
+export async function searchMacse(
+  options: MacseQuery,
+): Promise<MacsePage & { error: string | null; complete: boolean }> {
   const requests = macseRequests(options)
-  if (requests.length === 0) return { records: [], total: null, tooMany: null, error: null }
+  if (requests.length === 0) return { records: [], total: null, tooMany: null, error: null, complete: true }
 
   try {
-    const pages = await Promise.all(requests.map((request) => postMacse(request)))
+    const pages = await Promise.all(requests.map((request) => collectMacse(request)))
     const records: MacseRecord[] = []
     const seen = new Set<string>()
     let total: number | null = null
     let tooMany: number | null = null
+    let complete = true
     for (const page of pages) {
       if (page.tooMany && page.records.length === 0) {
         tooMany = Math.max(tooMany ?? 0, page.tooMany)
         continue
       }
+      if (!page.complete) complete = false
       if (page.total != null) total = Math.max(total ?? 0, page.total)
       for (const record of page.records) {
         const key = `${record.eredeti}|${record.uj}|${record.keresztnev}|${record.hivatkozas}`
@@ -182,15 +193,40 @@ export async function searchMacse(options: MacseQuery): Promise<MacsePage & { er
       }
     }
     if (records.length > 0) tooMany = null
-    return { records, total, tooMany, error: null }
+    else complete = false
+    return { records, total, tooMany, error: null, complete }
   } catch (error) {
     return {
       records: [],
       total: null,
       tooMany: null,
       error: error instanceof Error ? error.message : "A MACSE most nem válaszol.",
+      complete: false,
     }
   }
+}
+
+async function collectMacse(request: MacseRequest): Promise<MacsePage & { complete: boolean }> {
+  const first = await postMacse(request, 1)
+  if (first.tooMany || first.records.length === 0 || first.total == null) {
+    return { ...first, complete: first.tooMany == null && first.records.length > 0 }
+  }
+  const last = macsePageCount(first.total, first.records.length)
+  const full = Math.ceil(first.total / first.records.length)
+  if (last === 1) return { ...first, complete: true }
+  const records = [...first.records]
+  let complete = last >= full
+  try {
+    const rest = await mapPool(
+      Array.from({ length: last - 1 }, (_, index) => index + 2),
+      4,
+      (page) => postMacse(request, page),
+    )
+    for (const page of rest) records.push(...page.records)
+  } catch {
+    complete = false
+  }
+  return { records, total: first.total, tooMany: null, complete }
 }
 
 function swapLetter(value: string, pattern: RegExp, next: string): string {
@@ -218,11 +254,11 @@ function detailed(
   }
 }
 
-async function postMacse(request: MacseRequest): Promise<MacsePage> {
+async function postMacse(request: MacseRequest, page: number): Promise<MacsePage> {
   const cookie = await macseCookie()
   const body = new URLSearchParams({
     function: "names",
-    currentPageNumber: "1",
+    currentPageNumber: String(page),
     mode: request.mode,
     lname: request.lname ?? "",
     olname: request.olname ?? "",
@@ -236,8 +272,8 @@ async function postMacse(request: MacseRequest): Promise<MacsePage> {
     birthyear2: "",
     decreenumb: "",
     religion: "0",
-    btnExecute: "1",
   })
+  if (page === 1) body.set("btnExecute", "1")
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
@@ -317,4 +353,18 @@ function blank(value: string | undefined): string {
 function yearParam(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return ""
   return String(value)
+}
+
+async function mapPool<T, R>(items: T[], limit: number, task: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const index = next
+      next += 1
+      results[index] = await task(items[index] as T)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()))
+  return results
 }

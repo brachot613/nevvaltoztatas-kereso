@@ -324,7 +324,13 @@ function StatusLine({
   const macseLine = result.macse.tooMany
     ? `A MACSE ${count(result.macse.tooMany)} sort talált, és listát csak szűkítve ad. Ami lent van, a Szentiványi-kötetből jön.`
     : result.macse.total
-      ? `A MACSE-ben ${count(result.macse.total)} találat van, ebből ${count(result.macse.fetched)} sor jött át.`
+      ? result.macse.complete
+        ? `A MACSE-ben ${count(result.macse.total)} találat van, és mind szerepel lent${
+            result.macse.fetched === result.macse.total
+              ? "."
+              : ` (${count(result.macse.fetched)} különböző sor).`
+          }`
+        : `A MACSE-ben ${count(result.macse.total)} találat van, ebből ${count(result.macse.fetched)} sor jött át.`
       : result.macse.error
         ? result.macse.error
         : "A MACSE-ben nincs találat."
