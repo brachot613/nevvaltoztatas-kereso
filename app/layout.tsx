@@ -17,7 +17,7 @@ const serif = Source_Serif_4({
 export const metadata: Metadata = {
   title: "Vezetéknév-változtatás kereső",
   description:
-    "Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Megmutatja, ki miről mire változtatta a nevét.",
+    "1800-tól 1955-ig keres régi és új vezetéknévre. Forrás: Szentiványi Zoltán könyve (1800–1893) és a MACSE listája (1815–1955).",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

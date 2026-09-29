@@ -101,8 +101,26 @@ export function SearchApp() {
           <h1 className="font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
             Vezetéknév-változtatás kereső
           </h1>
-          <p className="max-w-xl text-lg leading-8 text-muted-foreground">
-            Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Nem baj, ha nem pontosan úgy írod, ahogy a papíron van. Megmutatja, ki miről mire változtatta a nevét.
+          <p className="max-w-xl text-[calc(1.125rem-2pt)] leading-7 text-muted-foreground">
+            Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Nem baj, ha nem pontosan úgy írod, ahogy a papíron van. 1800-tól 1955-ig keres, két helyen:{" "}
+            <a
+              className="text-foreground underline decoration-border underline-offset-4"
+              href="https://mek.oszk.hu/07400/07431/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Szentiványi Zoltán: Századunk névváltoztatásai
+            </a>{" "}
+            (1800–1893) és a{" "}
+            <a
+              className="text-foreground underline decoration-border underline-offset-4"
+              href="https://macse.hu/db/names/names.php"
+              target="_blank"
+              rel="noreferrer"
+            >
+              MACSE
+            </a>{" "}
+            névváltoztatási listája (1815–1955).
           </p>
         </header>
 
