@@ -1,4 +1,4 @@
-import { sameCounty, sameTown } from "./places.ts"
+import { flexibleMatch, sameCounty, sameTown, textHasFlexible } from "./places.ts"
 
 export type Corpus = "19" | "20"
 export type NameField = "mind" | "eredeti" | "uj"
@@ -306,10 +306,20 @@ function passesFilters(entry: IndexedEntry, options: SearchOptions): boolean {
   if (options.corpus !== "mind" && entry.corpus !== options.corpus) return false
   if (options.evTol != null && (entry.ev == null || entry.ev < options.evTol)) return false
   if (options.evIg != null && (entry.ev == null || entry.ev > options.evIg)) return false
-  if (!includesFolded(entry, options.keresztnev, "keresztnev")) return false
-  if (options.hely?.trim() && !sameTown(entry.hely ?? "", options.hely)) return false
+  if (options.keresztnev?.trim() && !matchesGiven(entry, options.keresztnev)) return false
+  if (options.hely?.trim() && !matchesTown(entry, options.hely)) return false
   if (options.megye?.trim() && !sameCounty(entry.megye ?? "", options.megye)) return false
   return true
+}
+
+function matchesTown(entry: IndexedEntry, query: string): boolean {
+  if (sameTown(entry.hely ?? "", query)) return true
+  return Boolean(entry.reszlet && textHasFlexible(query, entry.reszlet, true))
+}
+
+function matchesGiven(entry: IndexedEntry, query: string): boolean {
+  if (entry.keresztnev && flexibleMatch(query, entry.keresztnev, false)) return true
+  return Boolean(entry.reszlet && textHasFlexible(query, entry.reszlet, false))
 }
 
 export function searchPlaces(entries: IndexedEntry[], options: SearchOptions): SearchResult {
@@ -327,20 +337,6 @@ export function searchPlaces(entries: IndexedEntry[], options: SearchOptions): S
     mode: "single",
     tooShort: false,
   }
-}
-
-function includesFolded(
-  entry: IndexedEntry,
-  raw: string | undefined,
-  slot: "keresztnev" | "hely",
-): boolean {
-  const folded = strictKey(raw ?? "")
-  if (!folded) return true
-  if (slot === "hely" && entry.keys.hely.includes(folded)) return true
-  if (slot === "keresztnev" && entry.keys.keresztnev.includes(folded)) return true
-  if (entry.keys.detail.includes(folded)) return true
-  const loose = looseKey(raw ?? "")
-  return loose.length >= 3 && looseKey(entry.keys.detail).includes(loose)
 }
 
 export function searchNames(entries: IndexedEntry[], options: SearchOptions): SearchResult {

@@ -37,21 +37,89 @@ function aliases(): Map<string, Place> {
   return byAlias
 }
 
+const GEO: Record<string, string[]> = {
+  n: ["nagy"],
+  k: ["kis"],
+  sz: ["szent", "szekes", "szekely"],
+  b: ["balassa", "bekes"],
+  m: ["maramaros"],
+  u: ["uj"],
+  a: ["also"],
+  f: ["felso"],
+}
+
+function pieces(value: string): string[] {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/ß/g, "ss")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+}
+
+export function flexibleMatch(query: string, target: string, geo = false): boolean {
+  const foldedTarget = placeKey(target)
+  const foldedQuery = placeKey(query)
+  if (!foldedTarget || !foldedQuery) return false
+  if (foldedTarget === foldedQuery) return true
+  const parts = pieces(query)
+  if (parts.length === 1) {
+    const part = parts[0] ?? ""
+    if (part.length < 4) return false
+    if (foldedTarget.startsWith(part) && foldedTarget.length - part.length <= 2) return true
+    if (part.startsWith(foldedTarget) && part.length - foldedTarget.length <= 2) return true
+    return false
+  }
+  return consume(parts, foldedTarget, geo)
+}
+
+function consume(parts: string[], full: string, geo: boolean): boolean {
+  function walk(index: number, rest: string): boolean {
+    if (index === parts.length) return true
+    const last = index === parts.length - 1
+    const options = geo ? [parts[index] ?? "", ...(GEO[parts[index] ?? ""] ?? [])] : [parts[index] ?? ""]
+    for (const option of options) {
+      if (!option || !rest.startsWith(option)) continue
+      if (last || walk(index + 1, rest.slice(option.length))) return true
+    }
+    return false
+  }
+  return walk(0, full)
+}
+
 export function resolvePlace(value: string): { nev: string; megye: string } | null {
   const key = placeKey(value)
   if (!key) return null
-  const place = aliases().get(key)
-  if (!place) return null
-  return { nev: place.nev, megye: place.megye }
+  const direct = aliases().get(key)
+  if (direct) return { nev: direct.nev, megye: direct.megye }
+  let best: { place: Place; gap: number } | null = null
+  for (const place of load().telepulesek) {
+    if (!flexibleMatch(value, place.nev, true)) continue
+    const gap = Math.abs(placeKey(place.nev).length - key.length)
+    if (!best || gap < best.gap) best = { place, gap }
+  }
+  return best ? { nev: best.place.nev, megye: best.place.megye } : null
 }
 
 export function sameTown(stored: string, query: string): boolean {
-  const left = resolvePlace(stored) ?? resolvePlace(query)
-  const storedKey = placeKey(resolvePlace(stored)?.nev ?? stored)
-  const queryKey = placeKey(resolvePlace(query)?.nev ?? query)
-  if (!storedKey || !queryKey) return false
-  if (storedKey === queryKey) return true
-  if (left && placeKey(left.nev) === storedKey && placeKey(left.nev) === queryKey) return true
+  if (!stored.trim() || !query.trim()) return false
+  const storedPlace = resolvePlace(stored)
+  const queryPlace = resolvePlace(query)
+  if (storedPlace && queryPlace && placeKey(storedPlace.nev) === placeKey(queryPlace.nev)) return true
+  if (flexibleMatch(query, stored, true) || flexibleMatch(stored, query, true)) return true
+  if (queryPlace && flexibleMatch(query, stored, true)) return true
+  return false
+}
+
+export function textHasFlexible(query: string, text: string, geo: boolean): boolean {
+  const words = pieces(text)
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index] ?? ""
+    if (flexibleMatch(query, word, geo)) return true
+    const joined = words.slice(index, index + 4).join("")
+    if (joined !== word && flexibleMatch(query, joined, geo)) return true
+  }
   return false
 }
 
@@ -61,8 +129,11 @@ export function sameCounty(stored: string, query: string): boolean {
   if (!left || !right) return false
   if (left === right) return true
   if (right === "pest" && left === "budapest") return true
-  if (right === "budapest" && left === "budapest") return true
-  return false
+  if (pieces(stored).some((part) => part === right)) return true
+  if (right.length >= 4 && pieces(stored).some((part) => part.startsWith(right) && part.length - right.length <= 2)) {
+    return true
+  }
+  return flexibleMatch(query, stored, true)
 }
 
 export function townsForCounty(megye: string): string[] {

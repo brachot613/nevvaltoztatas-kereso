@@ -61,6 +61,13 @@ test("a town or county without a surname searches residences", () => {
   })
   assert.equal(town.length, 1)
   assert.equal(town[0]?.residence, "Szeged")
+  const short = macseRequests({
+    query: "",
+    field: "mind",
+    strictness: "laza",
+    hely: "Kis-új-sz.",
+  })
+  assert.equal(short[0]?.residence, "Kisújszállás")
   assert.equal(town[0]?.lname ?? "", "")
 
   const county = macseRequests({

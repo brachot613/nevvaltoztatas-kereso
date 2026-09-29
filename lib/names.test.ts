@@ -73,6 +73,44 @@ test("orthography folds accents, cz, w/v, y/i and Weiss/Weisz", () => {
   assert.equal(damerau("kohn", "khon"), 1)
 })
 
+test("place and given-name filters understand abbreviations", () => {
+  const rows = indexEntries([
+    {
+      id: "p",
+      corpus: "19",
+      uj: "Kovács",
+      eredeti: "Klein",
+      hely: "Kisújszállás",
+      megye: "Jász-Nagykun-Szolnok",
+      reszlet: "Ferencz Kis-Új-Szállás",
+    },
+  ])
+  const town = searchPlaces(rows, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    hely: "Kis-új-sz.",
+  })
+  assert.equal(town.total, 1)
+  const county = searchPlaces(rows, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    megye: "Szolnok",
+  })
+  assert.equal(county.total, 1)
+  const given = searchNames(rows, {
+    query: "Kovács",
+    field: "uj",
+    corpus: "mind",
+    strictness: "szoros",
+    keresztnev: "Ferenc",
+  })
+  assert.equal(given.total, 1)
+})
+
 test("a town or a county does not need a surname", () => {
   const town = searchPlaces(indexed, {
     query: "",

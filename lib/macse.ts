@@ -1,5 +1,5 @@
 import type { NameField, Strictness } from "./names.ts"
-import { townsForCounty } from "./places.ts"
+import { resolvePlace, townsForCounty } from "./places.ts"
 
 const ENDPOINT = "https://macse.hu/db/names/names.php"
 const USER_AGENT = "Nevkereso/1.0 (egy kereses, nem tarolas)"
@@ -86,7 +86,7 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
   const to = yearParam(options.evIg)
   if (options.query.trim().length < 2) {
     if (!place && !county) return []
-    if (place) return [detailed("", "", given, place, from, to)]
+    if (place) return [detailed("", "", given, resolvePlace(place)?.nev ?? place, from, to)]
     return townsForCounty(county)
       .slice(0, 6)
       .map((town) => detailed("", "", given, town, from, to))

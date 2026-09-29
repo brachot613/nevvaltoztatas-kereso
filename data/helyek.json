@@ -95,6 +95,7 @@
     {"nev": "Csacza", "megye": "Trencsén", "alias": ["Csaca"]},
     {"nev": "Hatvan", "megye": "Heves", "alias": []},
     {"nev": "Karcag", "megye": "Jász-Nagykun-Szolnok", "alias": []},
+    {"nev": "Kisújszállás", "megye": "Jász-Nagykun-Szolnok", "alias": ["Kis-Új-Szállás", "Kisujszallas"]},
     {"nev": "Mezőtúr", "megye": "Jász-Nagykun-Szolnok", "alias": ["Mezotur"]},
     {"nev": "Sárospatak", "megye": "Zemplén", "alias": ["Sarospatak"]},
     {"nev": "Kőszeg", "megye": "Vas", "alias": ["Koszeg"]},
