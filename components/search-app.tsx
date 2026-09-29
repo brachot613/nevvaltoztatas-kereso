@@ -6,7 +6,7 @@ import type { NameField, Strictness } from "@/lib/names"
 import { readNote } from "@/lib/note"
 import { cn } from "@/lib/utils"
 
-const EXAMPLES = ["Kohn", "Weiss", "Aczél", "Kohnból Korányi lett"]
+const EXAMPLES = ["Kohn", "Weiss", "Aczél", "Korányi"]
 
 type Drop = { q: string; keresztnev: boolean; hely: boolean; ev: boolean }
 
@@ -97,16 +97,10 @@ export function SearchApp() {
   return (
     <div className="flex-1 bg-background text-foreground">
       <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-5 py-8 sm:px-8 sm:py-14">
-        <header className="grid gap-4">
-          <p className="text-[0.72rem] font-semibold tracking-[0.22em] text-primary uppercase">
-            1800–1955
-          </p>
+        <header>
           <h1 className="font-serif text-5xl leading-none font-medium tracking-tight sm:text-6xl">
             Névkereső
           </h1>
-          <p className="max-w-xl text-lg leading-8 text-muted-foreground">
-            Egy név, vagy egy rövid mondat. Nem kell betűre pontosan egyeznie.
-          </p>
         </header>
 
         <form
@@ -132,7 +126,7 @@ export function SearchApp() {
                   event.currentTarget.form?.requestSubmit()
                 }
               }}
-              placeholder="Kohn Adolf, Csacza"
+              placeholder="Kohn"
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
@@ -153,8 +147,6 @@ export function SearchApp() {
 
           {reading.active && (
             <Reading
-              query={reading.query}
-              ordered={reading.ordered}
               keresztnev={!keresztnev.trim() && !noteOff.keresztnev ? reading.keresztnev : ""}
               hely={!hely.trim() && !noteOff.hely ? reading.hely : ""}
               evTol={manualYear || noteOff.ev ? null : reading.evTol}
@@ -187,8 +179,8 @@ export function SearchApp() {
 
           <details className="mt-5">
             <summary className="cursor-pointer text-sm text-muted-foreground">
-              Szűkítés keresztnévvel, hellyel, évvel
-              {filtersOn ? <span className="text-seal"> · bekapcsolva</span> : null}
+              Szűrés
+              {filtersOn ? <span className="text-seal"> ·</span> : null}
             </summary>
             <div className="mt-4 grid gap-3 sm:grid-cols-4">
               <Field
@@ -222,37 +214,20 @@ export function SearchApp() {
         </form>
 
         {!showResults && (
-          <section className="mt-10 grid gap-8">
-            <p className="text-sm text-muted-foreground">
-              Például{" "}
-              {EXAMPLES.map((example, index) => (
-                <span key={example}>
-                  {index > 0 && ", "}
-                  <button
-                    type="button"
-                    className="font-serif text-base text-foreground underline decoration-seal/50 decoration-1 underline-offset-4"
-                    onClick={() => setQuery(example)}
-                  >
-                    {example}
-                  </button>
-                </span>
-              ))}
-            </p>
-            <div className="grid gap-3 border-t border-border pt-6 text-sm leading-6 text-muted-foreground">
-              <p>
-                Két lista fut egyszerre, és egyik sem kerül a gépedre. A{" "}
-                <a className="text-foreground underline decoration-border underline-offset-4" href="https://macse.hu/db/names/names.php" target="_blank" rel="noreferrer">
-                  MACSE
-                </a>{" "}
-                1815–1955 közötti névváltoztatásai élőben jönnek. Mellette Szentiványi Zoltán
-                1800–1893-as kötete, laza egyezéssel: ékezet, cz/c, cs/ts, w/v, a név végi i/y, Weiss/Weisz.
-              </p>
-              <p>
-                Két szó esetén az egyik az eredeti név, a másik a felvett, a sorrend mindegy. Egy
-                mondatból a keresztnevet, a helyet és az évet is kiolvasom, itt a gépen.
-              </p>
-            </div>
-          </section>
+          <p className="mt-8 text-sm text-muted-foreground">
+            {EXAMPLES.map((example, index) => (
+              <span key={example}>
+                {index > 0 && " · "}
+                <button
+                  type="button"
+                  className="text-foreground"
+                  onClick={() => setQuery(example)}
+                >
+                  {example}
+                </button>
+              </span>
+            ))}
+          </p>
         )}
 
         {showResults && (
@@ -287,9 +262,6 @@ export function SearchApp() {
           </section>
         )}
 
-        <footer className="mt-auto pt-16 text-sm leading-6 text-muted-foreground">
-          Semmit nem mentünk el. A MACSE-t élőben kérdezzük, a Szentiványi-kötet a szerveren marad.
-        </footer>
       </div>
     </div>
   )
@@ -306,51 +278,30 @@ function StatusLine({
 }) {
   if (!result) {
     if (status === "error") return <p className="text-sm text-destructive">{message}</p>
-    return (
-      <p className="text-sm text-muted-foreground">Keresek a MACSE-ben és a Szentiványi-listában…</p>
-    )
+    return <p className="text-sm text-muted-foreground">Keresek…</p>
   }
   if (result.tooShort) return null
   if (result.hits.length === 0) {
     return (
-      <p className="max-w-xl text-sm leading-6">
-        {result.macse.tooMany
-          ? `A MACSE ${result.macse.tooMany.toLocaleString("hu-HU")} sort talált, és listát csak keresztnévvel vagy hellyel ad. A Szentiványi-kötetben nincs egyezés.`
-          : `Nincs találat.${result.macse.error ? ` ${result.macse.error}` : ""}`}
+      <p className="text-sm">
+        {result.macse.tooMany ? "Túl sok találat." : "Nincs találat."}
+        {result.macse.error ? ` ${result.macse.error}` : ""}
       </p>
     )
   }
   const count = (value: number) => value.toLocaleString("hu-HU")
-  const macseLine = result.macse.tooMany
-    ? `A MACSE ${count(result.macse.tooMany)} sort talált, és listát csak szűkítve ad. Ami lent van, a Szentiványi-kötetből jön.`
-    : result.macse.total
-      ? result.macse.complete
-        ? `A MACSE-ben ${count(result.macse.total)} találat van, és mind szerepel lent${
-            result.macse.fetched === result.macse.total
-              ? "."
-              : ` (${count(result.macse.fetched)} különböző sor).`
-          }`
-        : `A MACSE-ben ${count(result.macse.total)} találat van, ebből ${count(result.macse.fetched)} sor jött át.`
-      : result.macse.error
-        ? result.macse.error
-        : "A MACSE-ben nincs találat."
-  const book =
-    result.szentivanyi.matched > 0
-      ? ` A Szentiványi-kötetben ${count(result.szentivanyi.matched)} egyezés.`
-      : ""
-  const clipped =
-    result.szentivanyi.matched > result.hits.length
-      ? " A legközelebbi sorok látszanak."
-      : ""
+  const bits: string[] = []
+  if (result.macse.tooMany) bits.push(`MACSE ${count(result.macse.tooMany)}`)
+  else if (result.macse.total) {
+    const full = result.macse.complete && result.macse.fetched === result.macse.total
+    bits.push(full ? `MACSE ${count(result.macse.total)}` : `MACSE ${count(result.macse.fetched)}/${count(result.macse.total)}`)
+  } else if (result.macse.error) bits.push(result.macse.error)
+  if (result.szentivanyi.matched > 0) bits.push(`Szentiványi ${count(result.szentivanyi.matched)}`)
   return (
-    <div className="grid gap-1">
-      <p className="font-serif text-2xl">{result.hits.length} sor</p>
-      <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-        {macseLine}
-        {book}
-        {clipped}
-      </p>
-    </div>
+    <p className="text-sm text-muted-foreground">
+      <span className="font-serif text-2xl text-foreground">{result.hits.length}</span>
+      {bits.length > 0 ? ` · ${bits.join(" · ")}` : ""}
+    </p>
   )
 }
 
@@ -394,9 +345,7 @@ function HitBody({ hit }: { hit: SearchResponse["hits"][number] }) {
   const facts = [hit.keresztnev, hit.hely, hit.ev?.toString(), hit.hivatkozas].filter(Boolean)
   return (
     <div className="grid gap-1.5">
-      <p className="text-[0.95rem] leading-6">
-        {facts.join(" · ") || "Nincs további adat a sorban."}
-      </p>
+      {facts.length > 0 && <p className="text-[0.95rem] leading-6">{facts.join(" · ")}</p>}
       {hit.reszlet && <p className="text-sm leading-6 text-muted-foreground">{hit.reszlet}</p>}
       <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
         <span className="text-[0.68rem] font-semibold tracking-[0.14em] text-primary uppercase">
@@ -409,61 +358,45 @@ function HitBody({ hit }: { hit: SearchResponse["hits"][number] }) {
             rel="noreferrer"
             className="text-primary underline decoration-border underline-offset-4"
           >
-            forrásoldal
+            forrás
           </a>
         )}
-        <span className="text-muted-foreground">{hit.reasons.slice(0, 2).join(" · ")}</span>
       </p>
     </div>
   )
 }
 
 function Reading({
-  query,
-  ordered,
   keresztnev,
   hely,
   evTol,
   evIg,
   onDrop,
 }: {
-  query: string
-  ordered: boolean
   keresztnev: string
   hely: string
   evTol: number | null
   evIg: number | null
   onDrop: (part: "keresztnev" | "hely" | "ev") => void
 }) {
-  const names = query.split(" ")
-  const nameText = ordered && names.length === 2 ? `${names[0]} → ${names[1]}` : query
   const year = evTol == null ? "" : evTol === evIg ? String(evTol) : `${evTol}–${evIg}`
+  if (!keresztnev && !hely && !year) return null
   return (
-    <p className="mt-4 text-sm leading-6 text-muted-foreground">
-      Ebből olvasom: <span className="font-serif text-base text-foreground">{nameText}</span>
+    <p className="mt-4 flex flex-wrap gap-x-4 text-sm text-muted-foreground">
       {keresztnev && (
-        <>
-          {" · "}
-          <ReadingPart label={`${keresztnev} nélkül`} onClick={() => onDrop("keresztnev")}>
-            {keresztnev}
-          </ReadingPart>
-        </>
+        <ReadingPart label={`${keresztnev} nélkül`} onClick={() => onDrop("keresztnev")}>
+          {keresztnev}
+        </ReadingPart>
       )}
       {hely && (
-        <>
-          {" · "}
-          <ReadingPart label={`${hely} nélkül`} onClick={() => onDrop("hely")}>
-            {hely}
-          </ReadingPart>
-        </>
+        <ReadingPart label={`${hely} nélkül`} onClick={() => onDrop("hely")}>
+          {hely}
+        </ReadingPart>
       )}
       {year && (
-        <>
-          {" · "}
-          <ReadingPart label={`${year} nélkül`} onClick={() => onDrop("ev")}>
-            {year}
-          </ReadingPart>
-        </>
+        <ReadingPart label={`${year} nélkül`} onClick={() => onDrop("ev")}>
+          {year}
+        </ReadingPart>
       )}
     </p>
   )
