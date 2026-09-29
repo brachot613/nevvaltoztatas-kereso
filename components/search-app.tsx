@@ -97,10 +97,13 @@ export function SearchApp() {
   return (
     <div className="flex-1 bg-background text-foreground">
       <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-5 py-8 sm:px-8 sm:py-14">
-        <header>
-          <h1 className="font-serif text-5xl leading-none font-medium tracking-tight sm:text-6xl">
-            Névkereső
+        <header className="grid gap-4">
+          <h1 className="font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
+            Vezetéknév-változtatás kereső
           </h1>
+          <p className="max-w-xl text-lg leading-8 text-muted-foreground">
+            Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Nem baj, ha nem pontosan úgy írod, ahogy a papíron van. Megmutatja, ki miről mire változtatta a nevét.
+          </p>
         </header>
 
         <form

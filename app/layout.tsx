@@ -15,9 +15,9 @@ const serif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Névkereső",
+  title: "Vezetéknév-változtatás kereső",
   description:
-    "Keresés eredeti és felvett vezetéknévre.",
+    "Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Megmutatja, ki miről mire változtatta a nevét.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
