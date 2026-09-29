@@ -6,7 +6,7 @@ import type { NameField, Strictness } from "@/lib/names"
 import { readNote } from "@/lib/note"
 import { cn } from "@/lib/utils"
 
-const EXAMPLES = ["Kohn", "Weiss", "Aczél", "Korányi"]
+const EXAMPLES = ["Nagy", "Kovács", "Tóth", "Szabó", "Horváth", "Varga", "Kiss", "Molnár", "Németh", "Balogh"]
 
 type Drop = { q: string; keresztnev: boolean; hely: boolean; ev: boolean }
 
@@ -102,7 +102,7 @@ export function SearchApp() {
             Vezetéknév-változtatás kereső
           </h1>
           <p className="max-w-xl text-[calc(1.125rem-2pt)] leading-7 text-muted-foreground">
-            Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Nem baj, ha nem pontosan úgy írod, ahogy a papíron van. 1800-tól 1955-ig keres, két helyen:{" "}
+            Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Nem baj, ha nem pontosan úgy írod, ahogy a papíron van. Megmutatja, ki miről mire változtatta a nevét, 1800-tól 1955-ig. Két forrásból dolgozik:{" "}
             <a
               className="text-foreground underline decoration-border underline-offset-4"
               href="https://mek.oszk.hu/07400/07431/"
