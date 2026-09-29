@@ -119,8 +119,34 @@ test("a town or a county does not need a surname", () => {
     strictness: "laza",
     hely: "Csacza",
   })
-  assert.equal(town.total, 1)
-  assert.equal(town.shown[0]?.entry.uj, "Korányi")
+  assert.equal(town.shown.some((hit) => hit.entry.uj === "Korányi"), true)
+  const withUnread = indexEntries([
+    ...indexed.map((entry) => entry),
+    {
+      id: "sz-unread",
+      corpus: "19",
+      uj: "Ismeretlen",
+      eredeti: "Rejtett",
+      reszlet: "ocr szemét",
+      keys: {
+        ujStrict: "ismeretlen",
+        ujLoose: "ismeretlen",
+        eredetiStrict: "rejtett",
+        eredetiLoose: "rejtett",
+        detail: "ocrszemet",
+        hely: "",
+        keresztnev: "",
+      },
+    },
+  ])
+  const kept = searchPlaces(withUnread, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    hely: "Csacza",
+  })
+  assert.equal(kept.shown.some((hit) => hit.entry.id === "sz-unread"), true)
 
   const county = searchPlaces(indexed, {
     query: "",

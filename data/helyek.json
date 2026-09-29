@@ -113,6 +113,13 @@
     {"nev": "Torda", "megye": "Torda-Aranyos", "alias": []},
     {"nev": "Gyulafehérvár", "megye": "Alsó-Fehér", "alias": ["Gyulafehervar"]},
     {"nev": "Déva", "megye": "Hunyad", "alias": ["Deva"]},
-    {"nev": "Fogaras", "megye": "Fogaras", "alias": []}
+    {"nev": "Fogaras", "megye": "Fogaras", "alias": []},
+    {"nev": "Kislőd", "megye": "Veszprém", "alias": ["K.-Lőd", "K.-Löd", "Kis-Lőd", "Kis-Löd"]},
+    {"nev": "Nagyszombat", "megye": "Pozsony", "alias": ["N.-Szombat"]},
+    {"nev": "Nagybecskerek", "megye": "Torontál", "alias": ["N.-Becskerek"]},
+    {"nev": "Vágújhely", "megye": "Nyitra", "alias": ["Vágujhely"]},
+    {"nev": "Pannonhalma", "megye": "Győr", "alias": []},
+    {"nev": "Körmend", "megye": "Vas", "alias": []},
+    {"nev": "Békés", "megye": "Békés", "alias": []}
   ]
 }

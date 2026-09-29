@@ -19,6 +19,11 @@ def fold(value: str) -> str:
 
 def norm(detail: str) -> str:
     text = re.sub(r"\s+", " ", detail)
+    text = re.sub(
+        r"([A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű]{2,})-\s+([a-záéíóöőúüű]{2,})",
+        r"\1\2",
+        text,
+    )
     replacements = (
         ("Buda- pest", "Budapest"),
         ("Buda-pest", "Budapest"),
@@ -69,9 +74,20 @@ def find_place(detail: str, aliases: list[tuple[str, str, str]]) -> tuple[str, s
             rank = (match.end(), len(alias))
             if best is None or rank > (best[0], best[1]):
                 best = (match.end(), len(alias), town, county)
-    if best is None:
+    if best is not None:
+        return best[2], best[3]
+    towns = {(town, county) for _alias, town, county in aliases}
+    tokens = re.findall(r"[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű][A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű\.\-]*", text)
+    if not tokens:
         return None
-    return best[2], best[3]
+    fragment = fold(tokens[-1])
+    if len(fragment) < 4:
+        return None
+    hits = [(town, county) for town, county in towns if fold(town).endswith(fragment)]
+    unique = {(town, county) for town, county in hits}
+    if len(unique) == 1:
+        return unique.pop()
+    return None
 
 
 def main() -> None:

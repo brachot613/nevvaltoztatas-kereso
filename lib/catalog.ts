@@ -68,7 +68,7 @@ export async function searchCatalog(options: CatalogQuery): Promise<SearchRespon
   const local = named
     ? searchNames(list, { ...options, corpus: "mind", limit: 2000 })
     : located
-      ? searchPlaces(list, { ...options, corpus: "mind", limit: 2000 })
+      ? searchPlaces(list, { ...options, corpus: "mind", limit: 8000 })
       : searchNames(list, { ...options, corpus: "mind", limit: 2000 })
   if (!named && !located) {
     return {
@@ -149,7 +149,7 @@ function fromLocal(hit: SearchHit): ResultHit {
     eredeti: entry.eredeti,
     uj: entry.uj,
     keresztnev: entry.keresztnev ?? "",
-    hely: entry.hely ?? "",
+    hely: entry.hely?.trim() || (entry.id.startsWith("sz-") ? "helye nem olvasható" : ""),
     reszlet: entry.reszlet ?? "",
     ev: entry.ev ?? null,
     hivatkozas: entry.hivatkozas ?? "",
