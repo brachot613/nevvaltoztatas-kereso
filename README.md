@@ -18,6 +18,14 @@ npm run dev
 
 A fejlesztői szerver a [http://127.0.0.1:43123](http://127.0.0.1:43123) címen indul.
 
+## Vercel
+
+A projekt Next.js alkalmazás, a Vercel a `main` ágról tudja építeni. A kereső API Frankfurtból fut (`fra1`), hogy a MACSE közelebb legyen, és 60 másodpercig dolgozhat egy keresésen.
+
+```bash
+npx vercel --prod
+```
+
 ```bash
 npm test
 npm run lint
