@@ -14,7 +14,7 @@ import {
   type SearchHit,
   type Strictness,
 } from "./names.ts"
-import { countyOfTown, sameCounty, sameTown } from "./places.ts"
+import { countyOfTown, isBudapest, sameCounty, sameTown } from "./places.ts"
 
 export type ResultSource = "macse" | "szentivanyi"
 
@@ -60,6 +60,7 @@ type CatalogQuery = {
   evTol?: number | null
   evIg?: number | null
   onlyUnread?: boolean
+  budapestNelkul?: boolean
 }
 
 let indexed: Promise<IndexedEntry[]> | null = null
@@ -100,7 +101,11 @@ export async function searchCatalog(options: CatalogQuery): Promise<SearchRespon
     ? searchNames(list, { ...options, corpus: "mind", limit: 2000 })
     : searchPlaces(list, { ...options, corpus: "mind", limit: 8000, placeRows: "known" })
   const remote = await searchMacse(options)
-  if (named) remote.records = remote.records.filter((record) => fitsPlace(record.hely, options))
+  remote.records = remote.records.filter((record) => {
+    if (options.budapestNelkul && isBudapest(record.hely)) return false
+    if (named && !fitsPlace(record.hely, options)) return false
+    return true
+  })
   return {
     hits: combineHits(local.shown, remote.records, options),
     olvashatatlan: [],

@@ -146,3 +146,20 @@ export function townsForCounty(megye: string): string[] {
 export function countyOfTown(town: string): string {
   return resolvePlace(town)?.megye ?? ""
 }
+
+export function isBudapest(value: string): boolean {
+  const chunks = pieces(value)
+  if (chunks.length === 0) return false
+  if (chunks.some((chunk) => capitalKey(chunk))) return true
+  const whole = placeKey(value)
+  return capitalKey(whole)
+}
+
+function capitalKey(key: string): boolean {
+  if (!key) return false
+  if (key.startsWith("budapest")) return true
+  if (key === "buda" || key === "obuda" || key === "pest" || key === "pesten") return true
+  if (key === "bpest" || key === "bpast" || key === "bpst") return true
+  const resolved = aliases().get(key)
+  return Boolean(resolved && placeKey(resolved.megye) === "budapest")
+}

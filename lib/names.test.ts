@@ -11,6 +11,7 @@ import {
   strictKey,
   type NameEntry,
 } from "./names.ts"
+import { isBudapest } from "./places.ts"
 
 const rows: NameEntry[] = [
   {
@@ -205,6 +206,28 @@ test("Kohn finds the adopted name and not the other field", () => {
     strictness: "laza",
   })
   assert.equal(onAdopted.total, 0)
+})
+
+test("excluding Budapest drops the capital and keeps Szeged", () => {
+  assert.equal(isBudapest("Budapest"), true)
+  assert.equal(isBudapest("Bpest"), true)
+  assert.equal(isBudapest("Buda"), true)
+  assert.equal(isBudapest("Pest"), true)
+  assert.equal(isBudapest("Szeged"), false)
+  assert.equal(isBudapest("Kecskemét"), false)
+  const rows = indexEntries([
+    { id: "bp", corpus: "19", uj: "Halasi", eredeti: "Fischer", hely: "Budapest", megye: "Budapest" },
+    { id: "sz", corpus: "19", uj: "Darvas", eredeti: "Fischer", hely: "Szeged", megye: "Csongrád" },
+    { id: "alias", corpus: "19", uj: "Bartos", eredeti: "Fischer", hely: "Bpest", megye: "Budapest" },
+  ])
+  const kept = searchNames(rows, {
+    query: "Fischer",
+    field: "eredeti",
+    corpus: "mind",
+    strictness: "szoros",
+    budapestNelkul: true,
+  })
+  assert.deepEqual(kept.shown.map((hit) => hit.entry.id), ["sz"])
 })
 
 test("Fischermann reaches Fischer in laza and not in szoros", () => {

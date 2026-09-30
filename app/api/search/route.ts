@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     evTol: numberOrNull(url.searchParams.get("tol")) ?? reading.evTol,
     evIg: numberOrNull(url.searchParams.get("ig")) ?? reading.evIg,
     onlyUnread: url.searchParams.get("only") === "olvashatatlan",
+    budapestNelkul: url.searchParams.get("bp") === "nelkul",
   })
   return Response.json(result, {
     headers: { "Cache-Control": "no-store" },

@@ -22,6 +22,7 @@ export function SearchApp() {
   const [megye, setMegye] = useState("")
   const [tol, setTol] = useState("")
   const [ig, setIg] = useState("")
+  const [budapestKizarva, setBudapestKizarva] = useState(false)
   const [result, setResult] = useState<SearchResponse | null>(null)
   const [status, setStatus] = useState<Status>("idle")
   const [message, setMessage] = useState<string | null>(null)
@@ -51,6 +52,7 @@ export function SearchApp() {
     megye: effective.megye,
     tol: effective.tol,
     ig: effective.ig,
+    bp: budapestKizarva ? "nelkul" : "",
   })
   const fresh = result != null && resultKey === requestKey
   const hiddenFilters = Boolean(effective.keresztnev || effective.tol || effective.ig)
@@ -67,6 +69,7 @@ export function SearchApp() {
       megye: effective.megye,
       tol: effective.tol,
       ig: effective.ig,
+      ...(budapestKizarva ? { bp: "nelkul" } : {}),
     })
     try {
       const response = await fetch(`/api/search?${params}`, { signal, cache: "no-store" })
@@ -95,7 +98,7 @@ export function SearchApp() {
     }
     // Filters are part of the search, so they retrigger it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searching, effective.q, field, strictness, effective.keresztnev, effective.hely, effective.megye, effective.tol, effective.ig])
+  }, [searching, effective.q, field, strictness, effective.keresztnev, effective.hely, effective.megye, effective.tol, effective.ig, budapestKizarva])
 
   const showResults = searching && (status === "loading" || status === "done" || status === "error")
   const visible = fresh ? result : null
@@ -113,6 +116,7 @@ export function SearchApp() {
       megye: effective.megye,
       tol: effective.tol,
       ig: effective.ig,
+      ...(budapestKizarva ? { bp: "nelkul" } : {}),
     })
     params.set("only", "olvashatatlan")
     return params
@@ -234,6 +238,15 @@ export function SearchApp() {
             />
             <Field label="Megye" value={megye} onChange={setMegye} placeholder="Zala" />
           </div>
+          <label className="mt-4 flex w-fit cursor-pointer items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={budapestKizarva}
+              onChange={(event) => setBudapestKizarva(event.target.checked)}
+              className={cn("size-4 accent-primary", FOCUS)}
+            />
+            Budapest kizárása
+          </label>
 
           <details className="mt-5">
             <summary className={cn("cursor-pointer text-sm text-muted-foreground", FOCUS)}>
