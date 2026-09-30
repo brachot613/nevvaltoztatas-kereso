@@ -9,9 +9,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const field = oneOf(url.searchParams.get("field"), ["mind", "eredeti", "uj"] as const, "mind")
   const strictness = oneOf(url.searchParams.get("strictness"), ["laza", "szoros"] as const, "laza")
-  const reading = readNote(url.searchParams.get("q") ?? "")
+  const raw = url.searchParams.get("q") ?? ""
+  const reading = readNote(raw)
   const result = await searchCatalog({
     query: reading.query,
+    rawQuery: raw,
     field: field as NameField,
     strictness: strictness as Strictness,
     keresztnev: url.searchParams.get("keresztnev") || reading.keresztnev,

@@ -61,7 +61,7 @@ export function SearchApp() {
     setStatus("loading")
     setMessage(null)
     const params = new URLSearchParams({
-      q: effective.q,
+      q: trimmedQuery,
       field,
       strictness,
       keresztnev: effective.keresztnev,
@@ -108,7 +108,7 @@ export function SearchApp() {
   const waiting = effective.megye && effective.q.length < 2 ? "Keresek a megye városaiban…" : "Keresek…"
   function unreadParams() {
     const params = new URLSearchParams({
-      q: effective.q,
+      q: trimmedQuery,
       field,
       strictness,
       keresztnev: effective.keresztnev,

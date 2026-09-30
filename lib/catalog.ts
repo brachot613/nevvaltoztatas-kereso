@@ -14,6 +14,7 @@ import {
   type SearchHit,
   type Strictness,
 } from "./names.ts"
+import { extraSurnamePair } from "./note.ts"
 import { countyOfTown, isBudapest, sameCounty, sameTown } from "./places.ts"
 
 export type ResultSource = "macse" | "szentivanyi"
@@ -61,6 +62,7 @@ type CatalogQuery = {
   evIg?: number | null
   onlyUnread?: boolean
   budapestNelkul?: boolean
+  rawQuery?: string
 }
 
 let indexed: Promise<IndexedEntry[]> | null = null
@@ -68,6 +70,22 @@ let indexed: Promise<IndexedEntry[]> | null = null
 const EMPTY_MACSE = { total: null, tooMany: null, error: null, fetched: 0, complete: true }
 
 export async function searchCatalog(options: CatalogQuery): Promise<SearchResponse> {
+  const pair = extraSurnamePair(options.rawQuery ?? "")
+  if (!pair || options.onlyUnread) return searchOnce(options)
+  const [primary, extra] = await Promise.all([
+    searchOnce(options),
+    searchOnce({
+      ...options,
+      query: pair,
+      keresztnev: "",
+      hely: "",
+      rawQuery: "",
+    }),
+  ])
+  return mergeResponses(primary, extra)
+}
+
+async function searchOnce(options: CatalogQuery): Promise<SearchResponse> {
   const list = await loadSzentivanyi()
   const named = strictKey(options.query).length >= 2
   const located = Boolean(options.hely?.trim() || options.megye?.trim())
@@ -227,6 +245,33 @@ function fromUnscoredRemote(record: MacseRecord, id: string, field: NameField): 
     reasons: ["MACSE találat"],
     matched,
     score: 58,
+  }
+}
+
+function mergeResponses(primary: SearchResponse, extra: SearchResponse): SearchResponse {
+  const hits = new Map<string, ResultHit>()
+  for (const hit of [...primary.hits, ...extra.hits]) {
+    const key = [hit.eredeti, hit.uj, hit.keresztnev, hit.hely, hit.ev ?? "", hit.hivatkozas].join("|")
+    const previous = hits.get(key)
+    if (!previous || hit.score > previous.score) hits.set(key, hit)
+  }
+  const merged = [...hits.values()].sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score
+    return (right.ev ?? 0) - (left.ev ?? 0)
+  })
+  const macse = extra.macse.fetched > primary.macse.fetched ? extra.macse : primary.macse
+  return {
+    ...primary,
+    hits: merged,
+    tooShort: primary.tooShort && extra.tooShort,
+    macse: {
+      ...macse,
+      tooMany: merged.some((hit) => hit.sources.includes("macse")) ? null : macse.tooMany ?? primary.macse.tooMany,
+      complete: primary.macse.complete || extra.macse.complete,
+    },
+    szentivanyi: {
+      matched: Math.max(primary.szentivanyi.matched, extra.szentivanyi.matched),
+    },
   }
 }
 

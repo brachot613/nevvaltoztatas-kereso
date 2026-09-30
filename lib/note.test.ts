@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { readNote } from "./note.ts"
+import { extraSurnamePair, readNote } from "./note.ts"
 
 test("a plain surname stays a surname", () => {
   const note = readNote("Kohn")
@@ -62,6 +62,14 @@ test("a year range and körül widen the years", () => {
   const around = readNote("Korányi 1887 körül")
   assert.equal(around.evTol, 1886)
   assert.equal(around.evIg, 1888)
+})
+
+test("a second word that is also a given name or a town stays searchable as a surname", () => {
+  assert.equal(extraSurnamePair("Schönfeld Miklós"), "Schönfeld Miklós")
+  assert.equal(extraSurnamePair("Margit Makó"), "Margit Makó")
+  assert.equal(extraSurnamePair("Kohn Korányi"), null)
+  assert.equal(extraSurnamePair("Weiss Budapesten"), null)
+  assert.equal(extraSurnamePair("Kohn Adolf Csacza 1887"), null)
 })
 
 test("an unfinished short word does not become a second surname", () => {

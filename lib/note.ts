@@ -85,6 +85,21 @@ export function readNote(raw: string): NoteReading {
   return reading
 }
 
+export function extraSurnamePair(raw: string): string | null {
+  const tokens = raw
+    .trim()
+    .split(/\s+/)
+    .filter((token) => fold(token).length >= 2 && !/^\d{4}$/.test(token))
+  if (tokens.length !== 2) return null
+  const second = tokens[1] ?? ""
+  const place = asPlace(second)
+  if (place && place !== second) return null
+  const reading = readNote(raw)
+  const pair = tokens.join(" ")
+  if (reading.query === pair) return null
+  return pair
+}
+
 function classify(
   tokens: string[],
   directed: { from: string; to: string; ordered: boolean },
