@@ -66,8 +66,12 @@ export function macseVariants(raw: string): string[] {
   if (/ts/i.test(trimmed)) add(swapDigraph(trimmed, "ts", "cs"))
   if (/w/i.test(trimmed)) add(swapLetter(trimmed, /w/gi, "v"))
   else if (/v/i.test(trimmed)) add(swapLetter(trimmed, /v/gi, "w"))
-  if (/cz/i.test(trimmed)) add(trimmed.replace(/cz/gi, "c"))
-  else if (/c/i.test(trimmed) && !/cs|sch|ch/i.test(trimmed)) {
+  if (/cz/i.test(trimmed)) {
+    const asZ = replaceCz(trimmed, "z")
+    if (/w/i.test(asZ)) add(swapLetter(asZ, /w/gi, "v"))
+    add(asZ)
+    add(replaceCz(trimmed, "c"))
+  } else if (/c/i.test(trimmed) && !/cs|sch|ch/i.test(trimmed)) {
     add(trimmed.replace(/c/i, (letter) => (letter === "C" ? "Cz" : "cz")))
   }
   if (/ss/i.test(trimmed)) add(trimmed.replace(/ss/gi, "sz"))
@@ -77,6 +81,12 @@ export function macseVariants(raw: string): string[] {
   if (/sch/i.test(trimmed)) add(trimmed.replace(/sch/gi, "s"))
   addMannStem(trimmed, add)
   return found.slice(0, 4)
+}
+
+function replaceCz(value: string, next: string): string {
+  return value.replace(/cz/gi, (match) =>
+    match[0] === match[0].toUpperCase() ? next.toUpperCase() : next.toLowerCase(),
+  )
 }
 
 function addMannStem(value: string, add: (value: string) => void) {
@@ -110,8 +120,8 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
       detailed(tokens[1], tokens[0], given, place, from, to),
     ]
     if (options.strictness === "laza") {
-      const alt0 = macseVariants(tokens[0]).find((item) => item !== tokens[0])
-      const alt1 = macseVariants(tokens[1]).find((item) => item !== tokens[1])
+      const alt0 = bestVariant(tokens[0])
+      const alt1 = bestVariant(tokens[1])
       if (alt0) requests.push(detailed(alt0, tokens[1], given, place, from, to))
       if (alt1) requests.push(detailed(tokens[0], alt1, given, place, from, to))
     }
@@ -147,6 +157,16 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
   }
 
   return sided(names.slice(0, 4), given, place, from, to, options.field).slice(0, 8)
+}
+
+function bestVariant(name: string): string | undefined {
+  const forms = macseVariants(name).filter((item) => item !== name)
+  const lower = name.toLowerCase()
+  if (lower.includes("w") && lower.includes("cz")) {
+    const combined = forms.find((item) => /v/i.test(item) && /z/i.test(item) && !/cz/i.test(item))
+    if (combined) return combined
+  }
+  return forms[0]
 }
 
 function countyForms(names: string[]): string[] {

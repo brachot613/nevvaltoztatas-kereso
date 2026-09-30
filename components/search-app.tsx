@@ -103,7 +103,9 @@ export function SearchApp() {
   const showResults = searching && (status === "loading" || status === "done" || status === "error")
   const visible = fresh ? result : null
   const listLimit = listWindow.key === requestKey ? listWindow.limit : 40
-  const groups = visible ? groupHits(visible.hits) : []
+  const mainHits = visible ? visible.hits.filter((hit) => !isNearSpelling(hit)) : []
+  const similarHits = visible ? visible.hits.filter((hit) => isNearSpelling(hit)) : []
+  const groups = groupHits(mainHits)
   const shownGroups = groups.slice(0, listLimit)
   const waiting = effective.megye && effective.q.length < 2 ? "Keresek a megye városaiban…" : "Keresek…"
   function unreadParams() {
@@ -296,7 +298,13 @@ export function SearchApp() {
 
         {showResults && (
           <section aria-live="polite" className="mt-8">
-            <StatusLine status={status} message={message} result={visible} waiting={waiting} />
+            <StatusLine
+              status={status}
+              message={message}
+              result={visible ? { ...visible, hits: mainHits } : null}
+              waiting={waiting}
+              similar={similarHits.length}
+            />
             {shownGroups.length > 0 && (
               <ol className="mt-4">
                 {shownGroups.map((group) => (
@@ -323,6 +331,9 @@ export function SearchApp() {
                 ))}
               </ol>
             )}
+            {similarHits.length > 0 && (
+              <SimilarRows key={requestKey} hits={similarHits} marked={effective.q.length >= 2} />
+            )}
             {groups.length > shownGroups.length && (
               <button
                 type="button"
@@ -348,11 +359,13 @@ function StatusLine({
   message,
   result,
   waiting,
+  similar = 0,
 }: {
   status: Status
   message: string | null
   result: SearchResponse | null
   waiting: string
+  similar?: number
 }) {
   if (!result) {
     if (status === "error") return <p className="text-sm text-destructive">{message}</p>
@@ -360,6 +373,7 @@ function StatusLine({
   }
   if (result.tooShort) return null
   if (result.hits.length === 0) {
+    if (similar > 0) return null
     if (result.olvashatatlanCount > 0 && !result.macse.tooMany) return null
     return (
       <p className="text-sm">
@@ -385,6 +399,12 @@ function StatusLine({
   )
 }
 
+function isNearSpelling(hit: SearchResponse["hits"][number]): boolean {
+  if (hit.sources.includes("macse")) return false
+  if (hit.score >= 78 || hit.score === 40 || hit.score === 10) return false
+  return true
+}
+
 function groupHits(hits: SearchResponse["hits"]) {
   const groups: Array<{ eredeti: string; uj: string; rows: SearchResponse["hits"] }> = []
   const index = new Map<string, number>()
@@ -398,7 +418,65 @@ function groupHits(hits: SearchResponse["hits"]) {
       groups[at]?.rows.push(hit)
     }
   }
+  for (const group of groups) {
+    group.rows.sort((left, right) => (left.ev ?? 9999) - (right.ev ?? 9999))
+  }
   return groups
+}
+
+function SimilarRows({
+  hits,
+  marked,
+}: {
+  hits: SearchResponse["hits"]
+  marked: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const groups = groupHits(hits).slice(0, open ? hits.length : 0)
+  return (
+    <div className="border-t border-border">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "flex w-full items-baseline justify-between gap-4 py-4 text-left text-sm text-muted-foreground",
+          FOCUS,
+        )}
+      >
+        <span>{hits.length.toLocaleString("hu-HU")} hasonló írás</span>
+        <span aria-hidden className="text-foreground">
+          {open ? "–" : "+"}
+        </span>
+      </button>
+      {open && (
+        <ol>
+          {groups.map((group) => (
+            <li key={group.rows[0]?.id} className="border-t border-border/80 py-4">
+              <article className="grid gap-3">
+                <NamePair
+                  eredeti={group.eredeti}
+                  uj={group.uj}
+                  matched={marked ? (group.rows[0]?.matched ?? []) : []}
+                />
+                {group.rows.length === 1 && group.rows[0] ? (
+                  <HitBody hit={group.rows[0]} />
+                ) : (
+                  <ol>
+                    {group.rows.map((hit) => (
+                      <li key={hit.id} className="border-t border-border/80 py-3">
+                        <HitBody hit={hit} />
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </article>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
 }
 
 function NamePair({

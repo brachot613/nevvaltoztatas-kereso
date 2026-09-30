@@ -48,7 +48,7 @@ test("too many results become a refine signal, not rows", () => {
 })
 
 test("spelling variants cover cz, cs/ts, final i/y, w/v and Weiss", () => {
-  assert.deepEqual(macseVariants("Aczél"), ["Aczél", "Acél"])
+  assert.deepEqual(macseVariants("Aczél"), ["Aczél", "Azél", "Acél"])
   assert.deepEqual(macseVariants("Korányi"), ["Korányi", "Korányy"])
   assert.deepEqual(macseVariants("Kovács"), ["Kovács", "Kováts", "Kowács"])
   assert.deepEqual(macseVariants("Wolf"), ["Wolf", "Volf"])
@@ -57,6 +57,7 @@ test("spelling variants cover cz, cs/ts, final i/y, w/v and Weiss", () => {
   const fischermann = macseVariants("Fischermann")
   assert.ok(fischermann.includes("Fischer"))
   assert.equal(fischermann.includes("Fisczhermann"), false)
+  assert.ok(macseVariants("Schwarcz").includes("Schvarz"))
 })
 
 test("page count covers every MACSE page until the cap", () => {
@@ -213,6 +214,15 @@ test("two surnames on one side are searched as separate words", () => {
   assert.equal(requests[0]?.nlname, "Kohn")
   assert.equal(requests[0]?.olname, "")
   assert.equal(requests[1]?.nlname, "Korányi")
+})
+
+test("a cz name with w is also asked in the decree spelling", () => {
+  const requests = macseRequests({
+    query: "Schwarcz László",
+    field: "mind",
+    strictness: "laza",
+  })
+  assert.ok(requests.some((request) => request.olname === "Schvarz" && request.nlname === "László"))
 })
 
 test("two surnames go to the original and adopted fields", () => {
