@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
@@ -13,6 +13,12 @@ const serif = Source_Serif_4({
   weight: ["500", "600"],
   variable: "--font-source-serif",
 });
+
+export const viewport: Viewport = {
+  themeColor: "#f3efe4",
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Vezetéknév-változtatás kereső",

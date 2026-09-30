@@ -36,6 +36,8 @@ export type ResultHit = {
 
 export type SearchResponse = {
   hits: ResultHit[]
+  olvashatatlan: ResultHit[]
+  olvashatatlanCount: number
   tooShort: boolean
   compared: { strict: string; loose: string }
   macse: {
@@ -57,33 +59,52 @@ type CatalogQuery = {
   megye?: string
   evTol?: number | null
   evIg?: number | null
+  onlyUnread?: boolean
 }
 
 let indexed: Promise<IndexedEntry[]> | null = null
+
+const EMPTY_MACSE = { total: null, tooMany: null, error: null, fetched: 0, complete: true }
 
 export async function searchCatalog(options: CatalogQuery): Promise<SearchResponse> {
   const list = await loadSzentivanyi()
   const named = strictKey(options.query).length >= 2
   const located = Boolean(options.hely?.trim() || options.megye?.trim())
-  const local = named
-    ? searchNames(list, { ...options, corpus: "mind", limit: 2000 })
-    : located
-      ? searchPlaces(list, { ...options, corpus: "mind", limit: 8000 })
-      : searchNames(list, { ...options, corpus: "mind", limit: 2000 })
   if (!named && !located) {
+    const local = searchNames(list, { ...options, corpus: "mind", limit: 2000 })
     return {
       hits: [],
+      olvashatatlan: [],
+      olvashatatlanCount: 0,
       tooShort: true,
       compared: local.compared,
-      macse: { total: null, tooMany: null, error: null, fetched: 0, complete: true },
+      macse: EMPTY_MACSE,
       szentivanyi: { matched: 0 },
     }
   }
 
+  if (options.onlyUnread && !named) {
+    const local = searchPlaces(list, { ...options, corpus: "mind", limit: 4000, placeRows: "unread" })
+    return {
+      hits: [],
+      olvashatatlan: combineHits(local.shown, [], options),
+      olvashatatlanCount: local.unread,
+      tooShort: false,
+      compared: local.compared,
+      macse: EMPTY_MACSE,
+      szentivanyi: { matched: 0 },
+    }
+  }
+
+  const local = named
+    ? searchNames(list, { ...options, corpus: "mind", limit: 2000 })
+    : searchPlaces(list, { ...options, corpus: "mind", limit: 8000, placeRows: "known" })
   const remote = await searchMacse(options)
-  remote.records = remote.records.filter((record) => fitsPlace(record.hely, options))
+  if (named) remote.records = remote.records.filter((record) => fitsPlace(record.hely, options))
   return {
     hits: combineHits(local.shown, remote.records, options),
+    olvashatatlan: [],
+    olvashatatlanCount: named ? 0 : local.unread,
     tooShort: false,
     compared: local.compared,
     macse: {

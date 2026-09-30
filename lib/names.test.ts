@@ -147,6 +147,27 @@ test("a town or a county does not need a surname", () => {
     hely: "Csacza",
   })
   assert.equal(kept.shown.some((hit) => hit.entry.id === "sz-unread"), true)
+  const knownOnly = searchPlaces(withUnread, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    hely: "Csacza",
+    placeRows: "known",
+  })
+  assert.equal(knownOnly.shown.some((hit) => hit.entry.id === "sz-unread"), false)
+  assert.equal(knownOnly.shown.some((hit) => hit.entry.uj === "Korányi"), true)
+  assert.ok(knownOnly.unread >= 1)
+  const unreadOnly = searchPlaces(withUnread, {
+    query: "",
+    field: "mind",
+    corpus: "mind",
+    strictness: "laza",
+    hely: "Csacza",
+    placeRows: "unread",
+  })
+  assert.equal(unreadOnly.shown.some((hit) => hit.entry.id === "sz-unread"), true)
+  assert.equal(unreadOnly.shown.some((hit) => hit.entry.uj === "Korányi"), false)
 
   const county = searchPlaces(indexed, {
     query: "",

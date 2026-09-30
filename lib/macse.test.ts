@@ -1,8 +1,18 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { combineHits } from "./catalog.ts"
-import { macsePageCount, macseRequests, macseVariants, parseMacseHtml } from "./macse.ts"
+import {
+  macsePageCount,
+  macseRequests,
+  macseVariants,
+  macseNeedsYearSplit,
+  mergeMacsePages,
+  parseMacseHtml,
+  residenceHalves,
+  type MacseRecord,
+} from "./macse.ts"
 import { strictKey, type SearchHit } from "./names.ts"
+import { townsForCounty } from "./places.ts"
 
 const RECORD = `
 Felvett vezetéknév:</b></td><td align='left'><span style="background-color:Maroon; color:Yellow;">Korányi</span></td>
@@ -52,6 +62,12 @@ test("page count covers every MACSE page until the cap", () => {
   assert.equal(macsePageCount(null, 10), 1)
 })
 
+test("a town slice above forty pages is split before it is truncated", () => {
+  assert.equal(macseNeedsYearSplit(586, 10, null), true)
+  assert.equal(macseNeedsYearSplit(279, 10, null), false)
+  assert.equal(macseNeedsYearSplit(null, 0, 654), true)
+})
+
 test("a town or county without a surname searches residences", () => {
   const town = macseRequests({
     query: "",
@@ -79,7 +95,86 @@ test("a town or county without a surname searches residences", () => {
   const towns = county.map((request) => request.residence)
   assert.ok(towns.includes("Nagykanizsa"))
   assert.ok(towns.includes("Zalaegerszeg"))
+  assert.equal(towns.length, 4)
 })
+
+test("a county asks every town bound to it", () => {
+  const county = macseRequests({
+    query: "",
+    field: "mind",
+    strictness: "laza",
+    megye: "Pest",
+  })
+  assert.deepEqual(
+    county.map((request) => request.residence),
+    townsForCounty("Pest"),
+  )
+  assert.ok(county.length > 6)
+})
+
+test("a town MACSE refuses is split inside the 1815–1932 year box", () => {
+  const whole = residenceHalves(undefined, undefined)
+  assert.deepEqual(whole?.left, ["1815", "1873"])
+  assert.deepEqual(whole?.right, ["1874", "1932"])
+  assert.equal(residenceHalves("1900", "1900"), null)
+  assert.equal(residenceHalves("1932", "1932"), null)
+  const edge = residenceHalves("1900", "1901")
+  assert.deepEqual(edge?.left, ["1900", "1900"])
+  assert.deepEqual(edge?.right, ["1901", "1901"])
+  const late = residenceHalves("1900", "1955")
+  assert.equal(late?.right[1], "1932")
+})
+
+test("county pages add their totals and a surname keeps the larger one", () => {
+  const nagy = macseRow("Nagy")
+  const kiss = macseRow("Kiss")
+  const county = mergeMacsePages(
+    [
+      { records: [nagy], total: 28, tooMany: null, complete: true },
+      { records: [kiss], total: 12, tooMany: null, complete: true },
+    ],
+    true,
+  )
+  assert.equal(county.total, 40)
+  assert.equal(county.records.length, 2)
+  assert.equal(county.complete, true)
+
+  const surname = mergeMacsePages(
+    [
+      { records: [nagy], total: 28, tooMany: null, complete: true },
+      { records: [nagy], total: 12, tooMany: null, complete: true },
+    ],
+    false,
+  )
+  assert.equal(surname.total, 28)
+  assert.equal(surname.records.length, 1)
+
+  const refused = mergeMacsePages(
+    [
+      { records: [], total: null, tooMany: 900, complete: false },
+      { records: [nagy], total: 28, tooMany: null, complete: true },
+    ],
+    true,
+  )
+  assert.equal(refused.complete, false)
+  assert.equal(refused.tooMany, null)
+  assert.equal(refused.records.length, 1)
+})
+
+function macseRow(uj: string): MacseRecord {
+  return {
+    eredeti: "Kohn",
+    uj,
+    keresztnev: "Ádám",
+    hely: "Zalaegerszeg",
+    foglalkozas: "",
+    szuletesiHely: "",
+    ev: 1901,
+    hivatkozas: uj,
+    forrasUrl: "",
+    forrasSzoveg: "",
+  }
+}
 
 test("a single surname searches both fields in one MACSE request", () => {
   const requests = macseRequests({

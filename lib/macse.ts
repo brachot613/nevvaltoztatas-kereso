@@ -87,9 +87,7 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
   if (options.query.trim().length < 2) {
     if (!place && !county) return []
     if (place) return [detailed("", "", given, resolvePlace(place)?.nev ?? place, from, to)]
-    return townsForCounty(county)
-      .slice(0, 6)
-      .map((town) => detailed("", "", given, town, from, to))
+    return townsForCounty(county).map((town) => detailed("", "", given, town, from, to))
   }
   const detail = Boolean(place || from || to || options.field !== "mind")
   const tokens = options.query
@@ -176,9 +174,49 @@ export function parseMacseHtml(html: string): MacsePage {
 
 const MAX_MACSE_PAGES = 40
 
+export function macseNeedsYearSplit(
+  total: number | null,
+  firstCount: number,
+  tooMany: number | null,
+  maxPages = MAX_MACSE_PAGES,
+): boolean {
+  if (tooMany) return true
+  if (total == null || firstCount <= 0) return false
+  return Math.ceil(total / firstCount) > maxPages
+}
+
 export function macsePageCount(total: number | null, firstCount: number, maxPages = MAX_MACSE_PAGES): number {
   if (total == null || firstCount <= 0 || total <= firstCount) return 1
   return Math.min(maxPages, Math.ceil(total / firstCount))
+}
+
+export function mergeMacsePages(
+  pages: Array<MacsePage & { complete: boolean }>,
+  sumTotals: boolean,
+): MacsePage & { complete: boolean } {
+  const records: MacseRecord[] = []
+  const seen = new Set<string>()
+  let total: number | null = null
+  let tooMany: number | null = null
+  let complete = pages.length > 0
+  for (const page of pages) {
+    if (page.tooMany && page.records.length === 0) {
+      tooMany = Math.max(tooMany ?? 0, page.tooMany)
+      complete = false
+      continue
+    }
+    if (!page.complete) complete = false
+    if (page.total != null) total = sumTotals ? (total ?? 0) + page.total : Math.max(total ?? 0, page.total)
+    for (const record of page.records) {
+      const key = `${record.eredeti}|${record.uj}|${record.keresztnev}|${record.hivatkozas}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      records.push(record)
+    }
+  }
+  if (records.length > 0) tooMany = null
+  else complete = false
+  return { records, total, tooMany, complete }
 }
 
 export async function searchMacse(
@@ -188,31 +226,16 @@ export async function searchMacse(
   if (requests.length === 0) return { records: [], total: null, tooMany: null, error: null, complete: true }
 
   try {
-    const manyTowns = options.query.trim().length < 2 && requests.length > 1
-    const pageCap = manyTowns ? 4 : MAX_MACSE_PAGES
-    const pages = await Promise.all(requests.map((request) => collectMacse(request, pageCap)))
-    const records: MacseRecord[] = []
-    const seen = new Set<string>()
-    let total: number | null = null
-    let tooMany: number | null = null
-    let complete = true
-    for (const page of pages) {
-      if (page.tooMany && page.records.length === 0) {
-        tooMany = Math.max(tooMany ?? 0, page.tooMany)
-        continue
-      }
-      if (!page.complete) complete = false
-      if (page.total != null) total = Math.max(total ?? 0, page.total)
-      for (const record of page.records) {
-        const key = `${record.eredeti}|${record.uj}|${record.keresztnev}|${record.hivatkozas}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        records.push(record)
-      }
+    const residenceOnly = options.query.trim().length < 2
+    if (!residenceOnly) {
+      const pages = await Promise.all(requests.map((request) => collectMacse(request, MAX_MACSE_PAGES)))
+      return { ...mergeMacsePages(pages, false), error: null }
     }
-    if (records.length > 0) tooMany = null
-    else complete = false
-    return { records, total, tooMany, error: null, complete }
+    const walked = await collectTowns(requests, MAX_MACSE_PAGES)
+    if (walked.error) {
+      return { records: [], total: null, tooMany: null, error: walked.error, complete: false }
+    }
+    return { ...mergeMacsePages(walked.pages, true), error: null }
   } catch (error) {
     return {
       records: [],
@@ -248,6 +271,141 @@ async function collectMacse(
     complete = false
   }
   return { records, total: first.total, tooMany: null, complete }
+}
+
+const COUNTY_BUDGET_MS = 52_000
+const TOWN_CONCURRENCY = 5
+const MACSE_YEAR_FROM = 1815
+const MACSE_YEAR_TO = 1932
+
+export function residenceHalves(
+  from: string | undefined,
+  to: string | undefined,
+): { left: [string, string]; right: [string, string] } | null {
+  const start = clampMacseYear(yearBound(from, MACSE_YEAR_FROM))
+  const end = clampMacseYear(yearBound(to, MACSE_YEAR_TO))
+  if (end - start < 1) return null
+  const mid = Math.floor((start + end) / 2)
+  return {
+    left: [String(start), String(mid)],
+    right: [String(mid + 1), String(end)],
+  }
+}
+
+async function collectTowns(
+  requests: MacseRequest[],
+  maxPages: number,
+): Promise<{ pages: Array<MacsePage & { complete: boolean }>; error: string | null }> {
+  const deadline = Date.now() + COUNTY_BUDGET_MS
+  let open = requests.map((request) => request)
+  const settled: Array<{ request: MacseRequest; first: MacsePage | null }> = []
+  let round = 0
+  while (open.length > 0) {
+    if (Date.now() > deadline || round >= 24) {
+      for (const request of open) settled.push({ request, first: null })
+      break
+    }
+    round += 1
+    const firsts = await mapPool(open, TOWN_CONCURRENCY, (request) => postTown(request, 1, deadline))
+    const next: MacseRequest[] = []
+    for (let index = 0; index < open.length; index += 1) {
+      const request = open[index]
+      const first = firsts[index] ?? null
+      if (!request) continue
+      const halves =
+        first && macseNeedsYearSplit(first.total, first.records.length, first.tooMany, maxPages)
+          ? residenceHalves(request.changeyear1, request.changeyear2)
+          : null
+      if (halves && Date.now() < deadline) {
+        next.push({ ...request, changeyear1: halves.left[0], changeyear2: halves.left[1] })
+        next.push({ ...request, changeyear1: halves.right[0], changeyear2: halves.right[1] })
+        continue
+      }
+      settled.push({ request, first })
+    }
+    open = next
+  }
+
+  if (settled.length === 0 || settled.every((item) => item.first == null)) {
+    return { pages: [], error: "A MACSE most nem válaszol." }
+  }
+
+  const plans = settled.map((item) => ({ request: item.request, ...planTown(item.first, maxPages) }))
+  const jobs: Array<{ index: number; page: number }> = []
+  const longest = Math.max(0, ...plans.map((plan) => plan.pages.length))
+  for (let slot = 0; slot < longest; slot += 1) {
+    for (let index = 0; index < plans.length; index += 1) {
+      const page = plans[index]?.pages[slot]
+      if (page) jobs.push({ index, page })
+    }
+  }
+
+  const extra = plans.map(() => [] as MacseRecord[])
+  const received = plans.map((plan) => new Set<number>(plan.first.records.length > 0 ? [1] : []))
+  await mapPool(jobs, TOWN_CONCURRENCY, async (job) => {
+    if (Date.now() > deadline) return
+    const request = plans[job.index]?.request
+    if (!request) return
+    const page = await postTown(request, job.page, deadline)
+    if (!page) return
+    extra[job.index]?.push(...page.records)
+    received[job.index]?.add(job.page)
+  })
+
+  return {
+    pages: plans.map((plan, index) => ({
+      records: [...plan.first.records, ...(extra[index] ?? [])],
+      total: plan.first.total,
+      tooMany: plan.first.tooMany,
+      complete: plan.complete && plan.pages.every((page) => received[index]?.has(page) ?? false),
+    })),
+    error: null,
+  }
+}
+
+async function postTown(request: MacseRequest, page: number, deadline: number): Promise<MacsePage | null> {
+  try {
+    return await postMacse(request, page, budgetTimeout(deadline))
+  } catch {
+    if (Date.now() > deadline) return null
+    try {
+      return await postMacse(request, page, budgetTimeout(deadline))
+    } catch {
+      return null
+    }
+  }
+}
+
+function planTown(first: MacsePage | null, maxPages: number): {
+  first: MacsePage
+  pages: number[]
+  complete: boolean
+} {
+  if (!first) return { first: { records: [], total: null, tooMany: null }, pages: [], complete: false }
+  if (first.tooMany || first.records.length === 0 || first.total == null) {
+    return { first, pages: [], complete: first.tooMany == null && first.records.length > 0 }
+  }
+  const last = macsePageCount(first.total, first.records.length, maxPages)
+  const full = Math.ceil(first.total / first.records.length)
+  return {
+    first,
+    pages: Array.from({ length: Math.max(0, last - 1) }, (_, index) => index + 2),
+    complete: last >= full,
+  }
+}
+
+function budgetTimeout(deadline: number): number {
+  return Math.min(12_000, Math.max(1_500, deadline - Date.now()))
+}
+
+function yearBound(value: string | undefined, fallback: number): number {
+  const year = Number(value)
+  if (!Number.isInteger(year) || year < 1800 || year > 1956) return fallback
+  return year
+}
+
+function clampMacseYear(year: number): number {
+  return Math.min(MACSE_YEAR_TO, Math.max(MACSE_YEAR_FROM, year))
 }
 
 function swapEndingIY(value: string): string {
@@ -290,7 +448,7 @@ function detailed(
   }
 }
 
-async function postMacse(request: MacseRequest, page: number): Promise<MacsePage> {
+async function postMacse(request: MacseRequest, page: number, timeoutMs = 12_000): Promise<MacsePage> {
   const cookie = await macseCookie()
   const body = new URLSearchParams({
     function: "names",
@@ -319,7 +477,7 @@ async function postMacse(request: MacseRequest, page: number): Promise<MacsePage
     },
     body,
     cache: "no-store",
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   if (!response.ok) throw new Error(`A MACSE ${response.status} választ adott.`)
   return parseMacseHtml(await response.text())

@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     megye: url.searchParams.get("megye") ?? "",
     evTol: numberOrNull(url.searchParams.get("tol")) ?? reading.evTol,
     evIg: numberOrNull(url.searchParams.get("ig")) ?? reading.evIg,
+    onlyUnread: url.searchParams.get("only") === "olvashatatlan",
   })
   return Response.json(result, {
     headers: { "Cache-Control": "no-store" },

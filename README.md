@@ -9,6 +9,8 @@ A laza egyezés összevonja az ékezetet, a `cz`/`c`, a `cs`/`ts`, a `w`/`v`, a 
 
 Egy rövid mondatot is meg lehet adni, például `Kohn Adolf Csacza 1887` vagy `Kohnból Korányi lett`. A nevet, a keresztnevet, a helyet és az évet a böngésző olvassa ki, a jegyzet nem megy el sehova. A betűeltérést nem egy nyelvi modell találja ki, hanem a laza egyezés.
 
+Városra és megyére név nélkül is lehet keresni. A megye a hozzá kötött városok minden MACSE-oldalát lekéri, ugyanazzal a lappal, mint egy név. A kis falvak kimaradnak. A könyv olvashatatlan helyű sorai a lista végén, külön nyithatók.
+
 ## Futtatás
 
 ```bash

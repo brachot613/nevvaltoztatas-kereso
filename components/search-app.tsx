@@ -7,6 +7,7 @@ import { readNote } from "@/lib/note"
 import { cn } from "@/lib/utils"
 
 const EXAMPLES = ["Nagy", "Kovács", "Tóth", "Szabó", "Horváth", "Varga", "Kiss", "Molnár", "Németh", "Balogh"]
+const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 
 type Drop = { q: string; keresztnev: boolean; hely: boolean; ev: boolean }
 
@@ -26,6 +27,7 @@ export function SearchApp() {
   const [message, setMessage] = useState<string | null>(null)
   const [resultKey, setResultKey] = useState("")
   const [drop, setDrop] = useState<Drop>({ q: "", keresztnev: false, hely: false, ev: false })
+  const [listWindow, setListWindow] = useState({ key: "", limit: 40 })
 
   const trimmedQuery = query.trim()
   const reading = readNote(trimmedQuery)
@@ -51,21 +53,7 @@ export function SearchApp() {
     ig: effective.ig,
   })
   const fresh = result != null && resultKey === requestKey
-  const filtersOn = Boolean(effective.keresztnev || effective.hely || effective.megye || effective.tol || effective.ig)
-
-  useEffect(() => {
-    if (!searching) return
-    const controller = new AbortController()
-    const timer = setTimeout(() => {
-      void runSearch(controller.signal)
-    }, 280)
-    return () => {
-      controller.abort()
-      clearTimeout(timer)
-    }
-    // Filters are part of the search, so they retrigger it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searching, effective.q, field, strictness, effective.keresztnev, effective.hely, effective.megye, effective.tol, effective.ig])
+  const hiddenFilters = Boolean(effective.keresztnev || effective.tol || effective.ig)
 
   async function runSearch(signal: AbortSignal) {
     setStatus("loading")
@@ -95,17 +83,49 @@ export function SearchApp() {
     }
   }
 
+  useEffect(() => {
+    if (!searching) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      void runSearch(controller.signal)
+    }, 280)
+    return () => {
+      controller.abort()
+      clearTimeout(timer)
+    }
+    // Filters are part of the search, so they retrigger it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searching, effective.q, field, strictness, effective.keresztnev, effective.hely, effective.megye, effective.tol, effective.ig])
+
   const showResults = searching && (status === "loading" || status === "done" || status === "error")
   const visible = fresh ? result : null
+  const listLimit = listWindow.key === requestKey ? listWindow.limit : 40
+  const groups = visible ? groupHits(visible.hits) : []
+  const shownGroups = groups.slice(0, listLimit)
+  const waiting = effective.megye && effective.q.length < 2 ? "Keresek a megye városaiban…" : "Keresek…"
+  function unreadParams() {
+    const params = new URLSearchParams({
+      q: effective.q,
+      field,
+      strictness,
+      keresztnev: effective.keresztnev,
+      hely: effective.hely,
+      megye: effective.megye,
+      tol: effective.tol,
+      ig: effective.ig,
+    })
+    params.set("only", "olvashatatlan")
+    return params
+  }
 
   return (
     <div className="flex-1 bg-background text-foreground">
       <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-5 py-8 sm:px-8 sm:py-14">
         <header className="grid gap-4">
-          <h1 className="font-serif text-4xl leading-tight font-medium tracking-tight sm:text-5xl">
+          <h1 className="max-w-full font-serif text-[1.85rem] leading-[1.15] font-medium tracking-tight text-balance sm:text-[2.35rem]">
             Vezetéknév-változtatás kereső
           </h1>
-          <p className="max-w-xl text-[calc(1.125rem-2pt)] leading-7 text-muted-foreground">
+          <p className="max-w-xl text-[calc(1.125rem-2pt)] leading-7 text-pretty text-muted-foreground">
             Írd be a régi vezetéknevet, vagy azt, amire kicserélték. Nem baj, ha nem pontosan úgy írod, ahogy a papíron van. Megmutatja, ki miről mire változtatta a nevét, 1800-tól 1955-ig. Két forrásból dolgozik:{" "}
             <a
               className="text-foreground underline decoration-border underline-offset-4"
@@ -129,7 +149,7 @@ export function SearchApp() {
         </header>
 
         <form
-          className="mt-10"
+          className="mt-8"
           onSubmit={(event) => {
             event.preventDefault()
             const controller = new AbortController()
@@ -151,7 +171,7 @@ export function SearchApp() {
                   event.currentTarget.form?.requestSubmit()
                 }
               }}
-              placeholder="Kohn"
+              placeholder={hely.trim() || megye.trim() ? "" : "Nagy"}
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
@@ -164,7 +184,10 @@ export function SearchApp() {
             />
             <button
               type="submit"
-              className="mb-3 shrink-0 text-sm font-medium tracking-[0.16em] text-primary uppercase"
+              className={cn(
+                "mb-2 shrink-0 px-1 py-2 text-sm font-medium tracking-[0.16em] text-primary uppercase",
+                FOCUS,
+              )}
             >
               Keresés
             </button>
@@ -182,7 +205,7 @@ export function SearchApp() {
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <TextChoice
-              label="Hol"
+              label="Név"
               value={field}
               onChange={setField}
               options={[
@@ -213,9 +236,9 @@ export function SearchApp() {
           </div>
 
           <details className="mt-5">
-            <summary className="cursor-pointer text-sm text-muted-foreground">
+            <summary className={cn("cursor-pointer text-sm text-muted-foreground", FOCUS)}>
               Szűrés
-              {filtersOn ? <span className="text-seal"> ·</span> : null}
+              {hiddenFilters ? <span className="text-seal"> ·</span> : null}
             </summary>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <Field
@@ -243,34 +266,33 @@ export function SearchApp() {
         </form>
 
         {!showResults && (
-          <p className="mt-8 text-sm text-muted-foreground">
-            {EXAMPLES.map((example, index) => (
-              <span key={example}>
-                {index > 0 && " · "}
+          <ul className="mt-8 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            {EXAMPLES.map((example) => (
+              <li key={example}>
                 <button
                   type="button"
-                  className="text-foreground"
+                  className={cn("text-foreground", FOCUS)}
                   onClick={() => setQuery(example)}
                 >
                   {example}
                 </button>
-              </span>
+              </li>
             ))}
-          </p>
+          </ul>
         )}
 
         {showResults && (
-          <section aria-live="polite" className="mt-10">
-            <StatusLine status={status} message={message} result={visible} />
-            {visible && visible.hits.length > 0 && (
+          <section aria-live="polite" className="mt-8">
+            <StatusLine status={status} message={message} result={visible} waiting={waiting} />
+            {shownGroups.length > 0 && (
               <ol className="mt-4">
-                {groupHits(visible.hits).map((group) => (
-                  <li key={group.rows[0]?.id} className="border-t border-border py-7">
+                {shownGroups.map((group) => (
+                  <li key={group.rows[0]?.id} className="border-t border-border py-5">
                     <article className="grid gap-3">
                       <NamePair
                         eredeti={group.eredeti}
                         uj={group.uj}
-                        matched={group.rows[0]?.matched ?? []}
+                        matched={effective.q.length >= 2 ? (group.rows[0]?.matched ?? []) : []}
                       />
                       {group.rows.length === 1 && group.rows[0] ? (
                         <HitBody hit={group.rows[0]} />
@@ -288,6 +310,18 @@ export function SearchApp() {
                 ))}
               </ol>
             )}
+            {groups.length > shownGroups.length && (
+              <button
+                type="button"
+                className={cn("mt-1 py-3 text-sm text-foreground", FOCUS)}
+                onClick={() => setListWindow({ key: requestKey, limit: listLimit + 40 })}
+              >
+                További találatok
+              </button>
+            )}
+            {visible && visible.olvashatatlanCount > 0 && (
+              <UnreadRows key={requestKey} count={visible.olvashatatlanCount} params={unreadParams()} />
+            )}
           </section>
         )}
 
@@ -300,17 +334,20 @@ function StatusLine({
   status,
   message,
   result,
+  waiting,
 }: {
   status: Status
   message: string | null
   result: SearchResponse | null
+  waiting: string
 }) {
   if (!result) {
     if (status === "error") return <p className="text-sm text-destructive">{message}</p>
-    return <p className="text-sm text-muted-foreground">Keresek…</p>
+    return <p className="text-sm text-muted-foreground">{waiting}</p>
   }
   if (result.tooShort) return null
   if (result.hits.length === 0) {
+    if (result.olvashatatlanCount > 0 && !result.macse.tooMany) return null
     return (
       <p className="text-sm">
         {result.macse.tooMany ? "Túl sok találat." : "Nincs találat."}
@@ -320,16 +357,17 @@ function StatusLine({
   }
   const count = (value: number) => value.toLocaleString("hu-HU")
   const bits: string[] = []
-  if (result.macse.tooMany) bits.push(`MACSE ${count(result.macse.tooMany)}`)
-  else if (result.macse.total) {
-    const full = result.macse.complete && result.macse.fetched === result.macse.total
-    bits.push(full ? `MACSE ${count(result.macse.total)}` : `MACSE ${count(result.macse.fetched)}/${count(result.macse.total)}`)
+  if (result.macse.tooMany && result.macse.fetched === 0) bits.push("MACSE túl sok")
+  else if (result.macse.complete && (result.macse.fetched > 0 || result.macse.total)) {
+    bits.push(`MACSE ${count(result.macse.fetched || result.macse.total || 0)}`)
+  } else if (result.macse.total) {
+    bits.push(`MACSE ${count(result.macse.fetched)}/${count(result.macse.total)}`)
   } else if (result.macse.error) bits.push(result.macse.error)
   if (result.szentivanyi.matched > 0) bits.push(`Szentiványi ${count(result.szentivanyi.matched)}`)
   return (
-    <p className="text-sm text-muted-foreground">
-      <span className="font-serif text-2xl text-foreground">{result.hits.length}</span>
-      {bits.length > 0 ? ` · ${bits.join(" · ")}` : ""}
+    <p className="sticky top-0 z-10 -mx-5 flex flex-wrap items-baseline gap-x-3 border-b border-border bg-background/95 px-5 py-3 text-sm text-muted-foreground backdrop-blur-sm sm:-mx-8 sm:px-8">
+      <span className="font-serif text-3xl leading-none text-foreground">{count(result.hits.length)}</span>
+      {bits.length > 0 && <span>{bits.join(" · ")}</span>}
     </p>
   )
 }
@@ -376,19 +414,23 @@ function HitBody({ hit }: { hit: SearchResponse["hits"][number] }) {
     <div className="grid gap-1.5">
       {facts.length > 0 && <p className="text-[0.95rem] leading-6">{facts.join(" · ")}</p>}
       {hit.reszlet && <p className="text-sm leading-6 text-muted-foreground">{hit.reszlet}</p>}
-      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-        <span className="text-[0.68rem] font-semibold tracking-[0.14em] text-primary uppercase">
-          {sourceLabel(hit.sources)}
-        </span>
-        {hit.forrasUrl.startsWith("http") && (
+      <p className="text-sm">
+        {hit.forrasUrl.startsWith("http") ? (
           <a
             href={hit.forrasUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-primary underline decoration-border underline-offset-4"
+            className={cn(
+              "text-[0.68rem] font-semibold tracking-[0.14em] text-primary uppercase underline decoration-border underline-offset-4",
+              FOCUS,
+            )}
           >
-            forrás
+            {sourceLabel(hit.sources)}
           </a>
+        ) : (
+          <span className="text-[0.68rem] font-semibold tracking-[0.14em] text-primary uppercase">
+            {sourceLabel(hit.sources)}
+          </span>
         )}
       </p>
     </div>
@@ -441,7 +483,7 @@ function ReadingPart({
   onClick: () => void
 }) {
   return (
-    <button type="button" onClick={onClick} aria-label={label} className="text-foreground">
+    <button type="button" onClick={onClick} aria-label={label} className={cn("text-foreground", FOCUS)}>
       {children}
       <span aria-hidden className="ml-1 text-muted-foreground">
         ×
@@ -498,6 +540,7 @@ function TextChoice<T extends string>({
             onClick={() => onChange(option)}
             className={cn(
               "text-sm",
+              FOCUS,
               active
                 ? "text-foreground underline decoration-seal decoration-2 underline-offset-4"
                 : "text-muted-foreground hover:text-foreground",
@@ -534,10 +577,87 @@ function Field({
         placeholder={placeholder}
         inputMode={numeric ? "numeric" : "text"}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 border-b border-border bg-transparent outline-none placeholder:text-muted-foreground/70 focus:border-foreground"
+        className={cn(
+          "h-10 border-b border-border bg-transparent outline-none placeholder:text-muted-foreground/40 focus:border-foreground",
+          FOCUS,
+        )}
         autoComplete="off"
       />
     </label>
+  )
+}
+
+function UnreadRows({ count, params }: { count: number; params: URLSearchParams }) {
+  const [open, setOpen] = useState(false)
+  const [rows, setRows] = useState<SearchResponse["olvashatatlan"] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [shown, setShown] = useState(40)
+  const visibleRows = rows?.slice(0, shown) ?? []
+
+  async function toggle() {
+    const next = !open
+    setOpen(next)
+    if (!next || rows) return
+    try {
+      const response = await fetch(`/api/search?${params}`, { cache: "no-store" })
+      if (!response.ok) throw new Error("A sorok nem jöttek át.")
+      const data = (await response.json()) as SearchResponse
+      setRows(data.olvashatatlan)
+    } catch {
+      setFailed(true)
+    }
+  }
+
+  return (
+    <div className="border-t border-border">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => void toggle()}
+        className={cn(
+          "flex w-full items-baseline justify-between gap-4 py-4 text-left text-sm text-muted-foreground",
+          FOCUS,
+        )}
+      >
+        <span>{count.toLocaleString("hu-HU")} sor, helye nem olvasható</span>
+        <span aria-hidden className="text-foreground">
+          {open ? "–" : "+"}
+        </span>
+      </button>
+      {open && failed && <p className="pb-4 text-sm text-destructive">A sorok nem jöttek át.</p>}
+      {open && !failed && rows == null && <p className="pb-4 text-sm text-muted-foreground">Keresek…</p>}
+      {open && rows && rows.length > 0 && (
+        <ol>
+          {groupHits(visibleRows).map((group) => (
+            <li key={group.rows[0]?.id} className="border-t border-border/80 py-4">
+              <article className="grid gap-3">
+                <NamePair eredeti={group.eredeti} uj={group.uj} matched={group.rows[0]?.matched ?? []} />
+                {group.rows.length === 1 && group.rows[0] ? (
+                  <HitBody hit={group.rows[0]} />
+                ) : (
+                  <ol>
+                    {group.rows.map((hit) => (
+                      <li key={hit.id} className="border-t border-border/80 py-3">
+                        <HitBody hit={hit} />
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </article>
+            </li>
+          ))}
+        </ol>
+      )}
+      {open && rows && shown < rows.length && (
+        <button
+          type="button"
+          className={cn("mb-6 text-sm text-foreground", FOCUS)}
+          onClick={() => setShown((value) => value + 80)}
+        >
+          További {Math.min(80, rows.length - shown).toLocaleString("hu-HU")}
+        </button>
+      )}
+    </div>
   )
 }
 

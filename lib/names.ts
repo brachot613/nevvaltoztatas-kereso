@@ -56,11 +56,13 @@ export type SearchOptions = {
   evTol?: number | null
   evIg?: number | null
   limit?: number
+  placeRows?: "all" | "known" | "unread"
 }
 
 export type SearchResult = {
   total: number
   shown: SearchHit[]
+  unread: number
   compared: { strict: string; loose: string }
   mode: "single" | "pair"
   tooShort: boolean
@@ -324,20 +326,24 @@ function matchesGiven(entry: IndexedEntry, query: string): boolean {
 }
 
 export function searchPlaces(entries: IndexedEntry[], options: SearchOptions): SearchResult {
-  const hits: SearchHit[] = []
+  const known: SearchHit[] = []
+  const unread: SearchHit[] = []
   for (const entry of entries) {
     if (!passesFilters(entry, options)) continue
-    const unread = !entry.hely?.trim() && !entry.megye?.trim()
-    hits.push({ entry, score: unread ? 10 : 40, hits: [] })
+    const missing = !entry.hely?.trim() && !entry.megye?.trim()
+    if (missing) unread.push({ entry, score: 10, hits: [] })
+    else known.push({ entry, score: 40, hits: [] })
   }
-  hits.sort((left, right) => {
-    if (right.score !== left.score) return right.score - left.score
-    return (right.entry.ev ?? 0) - (left.entry.ev ?? 0)
-  })
+  const byYear = (left: SearchHit, right: SearchHit) => (right.entry.ev ?? 0) - (left.entry.ev ?? 0)
+  known.sort(byYear)
+  unread.sort(byYear)
+  const scope = options.placeRows ?? "all"
+  const pool = scope === "known" ? known : scope === "unread" ? unread : [...known, ...unread]
   const limit = options.limit ?? 2000
   return {
-    total: hits.length,
-    shown: hits.slice(0, limit),
+    total: pool.length,
+    shown: pool.slice(0, limit),
+    unread: unread.length,
     compared: { strict: "", loose: "" },
     mode: "single",
     tooShort: false,
@@ -347,7 +353,7 @@ export function searchPlaces(entries: IndexedEntry[], options: SearchOptions): S
 export function searchNames(entries: IndexedEntry[], options: SearchOptions): SearchResult {
   const compared = { strict: strictKey(options.query), loose: looseKey(options.query) }
   if (compared.strict.length < 2) {
-    return { total: 0, shown: [], compared, mode: "single", tooShort: true }
+    return { total: 0, shown: [], unread: 0, compared, mode: "single", tooShort: true }
   }
 
   const tokens = options.query
@@ -400,6 +406,7 @@ export function searchNames(entries: IndexedEntry[], options: SearchOptions): Se
   return {
     total: hits.length,
     shown: hits.slice(0, limit),
+    unread: 0,
     compared,
     mode: pair ? "pair" : "single",
     tooShort: false,
