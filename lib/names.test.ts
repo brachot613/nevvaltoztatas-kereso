@@ -207,6 +207,34 @@ test("Kohn finds the adopted name and not the other field", () => {
   assert.equal(onAdopted.total, 0)
 })
 
+test("Fischermann reaches Fischer in laza and not in szoros", () => {
+  const rows = indexEntries([
+    {
+      id: "f",
+      corpus: "19",
+      uj: "Halasi",
+      eredeti: "Fischer",
+      hely: "Szeged",
+      megye: "Csongrád",
+      ev: 1884,
+    },
+  ])
+  const loose = searchNames(rows, {
+    query: "Fischermann",
+    field: "eredeti",
+    corpus: "mind",
+    strictness: "laza",
+  })
+  assert.equal(loose.total, 1)
+  const strict = searchNames(rows, {
+    query: "Fischermann",
+    field: "eredeti",
+    corpus: "mind",
+    strictness: "szoros",
+  })
+  assert.equal(strict.total, 0)
+})
+
 test("loose spelling still finds Aczél, Weisz and Ábrányi", () => {
   const acel = searchNames(indexed, {
     query: "Acel",

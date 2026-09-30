@@ -67,7 +67,7 @@ export function macseVariants(raw: string): string[] {
   if (/w/i.test(trimmed)) add(swapLetter(trimmed, /w/gi, "v"))
   else if (/v/i.test(trimmed)) add(swapLetter(trimmed, /v/gi, "w"))
   if (/cz/i.test(trimmed)) add(trimmed.replace(/cz/gi, "c"))
-  else if (/c/i.test(trimmed) && !/cs/i.test(trimmed)) {
+  else if (/c/i.test(trimmed) && !/cs|sch|ch/i.test(trimmed)) {
     add(trimmed.replace(/c/i, (letter) => (letter === "C" ? "Cz" : "cz")))
   }
   if (/ss/i.test(trimmed)) add(trimmed.replace(/ss/gi, "sz"))
@@ -75,7 +75,15 @@ export function macseVariants(raw: string): string[] {
   const doubled = found.find((item) => item !== trimmed && (/ss/i.test(item) || /sz/i.test(item)))
   if (doubled && /w/i.test(doubled)) add(swapLetter(doubled, /w/gi, "v"))
   if (/sch/i.test(trimmed)) add(trimmed.replace(/sch/gi, "s"))
+  addMannStem(trimmed, add)
   return found.slice(0, 4)
+}
+
+function addMannStem(value: string, add: (value: string) => void) {
+  const mann = value.replace(/mann$/i, "")
+  if (mann !== value && mann.length >= 5) add(mann)
+  const man = value.replace(/man$/i, "")
+  if (man !== value && man.length >= 5) add(man)
 }
 
 export function macseRequests(options: MacseQuery): MacseRequest[] {
@@ -123,6 +131,13 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
     }
   }
 
+  if (!place && county) {
+    const towns = townsForCounty(county)
+    if (towns.length > 0) {
+      return towns.flatMap((town) => sided(countyForms(names), given, town, from, to, options.field))
+    }
+  }
+
   if (!detail) {
     return names.slice(0, 4).map((name) => ({
       mode: "1",
@@ -131,14 +146,35 @@ export function macseRequests(options: MacseQuery): MacseRequest[] {
     }))
   }
 
-  return names.slice(0, 4).flatMap((name) => {
-    if (options.field === "uj") return [detailed("", name, given, place, from, to)]
-    if (options.field === "eredeti") return [detailed(name, "", given, place, from, to)]
+  return sided(names.slice(0, 4), given, place, from, to, options.field).slice(0, 8)
+}
+
+function countyForms(names: string[]): string[] {
+  const original = names[0] ?? ""
+  const stem = names.find((name) => {
+    const raw = original.toLocaleLowerCase("hu")
+    const next = name.toLocaleLowerCase("hu")
+    return next !== raw && raw.startsWith(next) && raw.length - next.length >= 3
+  })
+  return stem ? [original, stem] : names.slice(0, 1)
+}
+
+function sided(
+  names: string[],
+  given: string,
+  place: string,
+  from: string,
+  to: string,
+  field: MacseQuery["field"],
+): MacseRequest[] {
+  return names.flatMap((name) => {
+    if (field === "uj") return [detailed("", name, given, place, from, to)]
+    if (field === "eredeti") return [detailed(name, "", given, place, from, to)]
     return [
       detailed(name, "", given, place, from, to),
       detailed("", name, given, place, from, to),
     ]
-  }).slice(0, 8)
+  })
 }
 
 export function parseMacseHtml(html: string): MacsePage {
@@ -227,7 +263,8 @@ export async function searchMacse(
 
   try {
     const residenceOnly = options.query.trim().length < 2
-    if (!residenceOnly) {
+    const severalTowns = requests.filter((request) => request.residence).length > 1
+    if (!residenceOnly && !severalTowns) {
       const pages = await Promise.all(requests.map((request) => collectMacse(request, MAX_MACSE_PAGES)))
       return { ...mergeMacsePages(pages, false), error: null }
     }
@@ -253,7 +290,8 @@ async function collectMacse(
 ): Promise<MacsePage & { complete: boolean }> {
   const first = await postMacse(request, 1)
   if (first.tooMany || first.records.length === 0 || first.total == null) {
-    return { ...first, complete: first.tooMany == null && first.records.length > 0 }
+    const empty = !first.tooMany && first.records.length === 0
+    return { ...first, complete: first.records.length > 0 || empty }
   }
   const last = macsePageCount(first.total, first.records.length, maxPages)
   const full = Math.ceil(first.total / first.records.length)
@@ -382,8 +420,9 @@ function planTown(first: MacsePage | null, maxPages: number): {
   complete: boolean
 } {
   if (!first) return { first: { records: [], total: null, tooMany: null }, pages: [], complete: false }
-  if (first.tooMany || first.records.length === 0 || first.total == null) {
-    return { first, pages: [], complete: first.tooMany == null && first.records.length > 0 }
+  if (first.tooMany) return { first, pages: [], complete: false }
+  if (first.records.length === 0 || first.total == null) {
+    return { first, pages: [], complete: true }
   }
   const last = macsePageCount(first.total, first.records.length, maxPages)
   const full = Math.ceil(first.total / first.records.length)

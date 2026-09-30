@@ -157,6 +157,9 @@ function scoreAgainst(
   if (strictness === "laza" && queryLoose.length >= 3 && queryLoose === nameLoose) {
     return { kind: "loose", score: 90 }
   }
+  if (strictness === "laza" && sameMannStem(queryLoose, nameLoose)) {
+    return { kind: "loose", score: 78 }
+  }
   if (queryStrict.length >= 3 && nameStrict.startsWith(queryStrict)) {
     return { kind: "prefix", score: 84 }
   }
@@ -193,6 +196,21 @@ function scoreAgainst(
     return { kind: "contains", score: 66 }
   }
   return null
+}
+
+function sameMannStem(query: string, name: string): boolean {
+  const queryStem = mannStem(query)
+  const nameStem = mannStem(name)
+  if (queryStem && queryStem === name) return true
+  if (nameStem && nameStem === query) return true
+  return false
+}
+
+function mannStem(value: string): string | null {
+  if (!value.endsWith("man")) return null
+  const stem = value.slice(0, -3)
+  if (stem.length < 5) return null
+  return stem
 }
 
 function editDistance(query: string, name: string, allowed: number): number | null {

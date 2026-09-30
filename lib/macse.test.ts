@@ -54,6 +54,9 @@ test("spelling variants cover cz, cs/ts, final i/y, w/v and Weiss", () => {
   assert.deepEqual(macseVariants("Wolf"), ["Wolf", "Volf"])
   assert.ok(macseVariants("Weiss").includes("Weisz"))
   assert.ok(macseVariants("Weiss").includes("Veiss"))
+  const fischermann = macseVariants("Fischermann")
+  assert.ok(fischermann.includes("Fischer"))
+  assert.equal(fischermann.includes("Fisczhermann"), false)
 })
 
 test("page count covers every MACSE page until the cap", () => {
@@ -96,6 +99,19 @@ test("a town or county without a surname searches residences", () => {
   assert.ok(towns.includes("Nagykanizsa"))
   assert.ok(towns.includes("Zalaegerszeg"))
   assert.equal(towns.length, 4)
+})
+
+test("a surname plus a county searches the bound towns", () => {
+  const county = macseRequests({
+    query: "Fischermann",
+    field: "eredeti",
+    strictness: "laza",
+    megye: "Csongrád",
+  })
+  const szeged = county.filter((request) => request.residence === "Szeged").map((request) => request.olname)
+  assert.ok(szeged.includes("Fischermann"))
+  assert.ok(szeged.includes("Fischer"))
+  assert.ok(county.some((request) => request.residence === "Hódmezővásárhely"))
 })
 
 test("a county asks every town bound to it", () => {
