@@ -120,7 +120,7 @@ async function searchOnce(options: CatalogQuery): Promise<SearchResponse> {
     : searchPlaces(list, { ...options, corpus: "mind", limit: 8000, placeRows: "known" })
   const remote = await searchMacse(options)
   remote.records = remote.records.filter((record) => {
-    if (options.budapestNelkul && isBudapest(record.hely)) return false
+    if (options.budapestNelkul && (isBudapest(record.hely) || isBudapest(record.szuletesiHely))) return false
     if (named && !fitsPlace(record.hely, options)) return false
     return true
   })

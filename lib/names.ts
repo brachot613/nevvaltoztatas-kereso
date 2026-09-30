@@ -1,4 +1,4 @@
-import { flexibleMatch, isBudapest, sameCounty, sameTown, textHasFlexible } from "./places.ts"
+import { bornInBudapest, flexibleMatch, isBudapest, sameCounty, sameTown, textHasFlexible } from "./places.ts"
 
 export type Corpus = "19" | "20"
 export type NameField = "mind" | "eredeti" | "uj"
@@ -336,9 +336,11 @@ function passesFilters(entry: IndexedEntry, options: SearchOptions): boolean {
 }
 
 function inBudapest(entry: IndexedEntry): boolean {
-  if (entry.hely?.trim()) return isBudapest(entry.hely)
-  if (entry.megye?.trim()) return isBudapest(entry.megye)
-  return isBudapest(entry.reszlet ?? "")
+  if (isBudapest(entry.hely ?? "")) return true
+  if (isBudapest(entry.megye ?? "")) return true
+  if (bornInBudapest(entry.reszlet ?? "")) return true
+  if (!entry.hely?.trim() && !entry.megye?.trim()) return isBudapest(entry.reszlet ?? "")
+  return false
 }
 
 function matchesTown(entry: IndexedEntry, query: string): boolean {

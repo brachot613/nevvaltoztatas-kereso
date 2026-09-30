@@ -11,7 +11,7 @@ import {
   strictKey,
   type NameEntry,
 } from "./names.ts"
-import { isBudapest } from "./places.ts"
+import { bornInBudapest, isBudapest } from "./places.ts"
 
 const rows: NameEntry[] = [
   {
@@ -228,6 +228,41 @@ test("excluding Budapest drops the capital and keeps Szeged", () => {
     budapestNelkul: true,
   })
   assert.deepEqual(kept.shown.map((hit) => hit.entry.id), ["sz"])
+
+  assert.equal(bornInBudapest("Adolf szabómester Zágráb. szül. Pesten"), true)
+  assert.equal(bornInBudapest("György pesti születésű udvari kamarai számtiszt"), true)
+  assert.equal(bornInBudapest("Pálné szül. Farczalaics Terézifi"), false)
+  assert.equal(bornInBudapest("Rozi szülésznő Bpest"), false)
+  const born = searchNames(
+    indexEntries([
+      {
+        id: "szuletett",
+        corpus: "19",
+        uj: "Halasi",
+        eredeti: "Fischer",
+        hely: "Szeged",
+        megye: "Csongrád",
+        reszlet: "Mór Szeged, szül. Budapesten",
+      },
+      {
+        id: "nee",
+        corpus: "19",
+        uj: "Halasi",
+        eredeti: "Fischer",
+        hely: "Szeged",
+        megye: "Csongrád",
+        reszlet: "Pálné szül. Farczalaics Teréz",
+      },
+    ]),
+    {
+      query: "Fischer",
+      field: "eredeti",
+      corpus: "mind",
+      strictness: "szoros",
+      budapestNelkul: true,
+    },
+  )
+  assert.deepEqual(born.shown.map((hit) => hit.entry.id), ["nee"])
 })
 
 test("Fischermann reaches Fischer in laza and not in szoros", () => {

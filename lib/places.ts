@@ -155,6 +155,16 @@ export function isBudapest(value: string): boolean {
   return capitalKey(whole)
 }
 
+export function bornInBudapest(text: string): boolean {
+  const folded = text.normalize("NFD").replace(/\p{M}/gu, "")
+  if (/(?:budapest\w*|bpest\w*|pesti|pesten|obuda\w*)\s+szulet/i.test(folded)) return true
+  for (const match of folded.matchAll(/(?:^|[^\p{L}])szul(?:etett)?\.?\s+(\p{L}[\p{L}.-]*)/giu)) {
+    const place = (match[1] ?? "").replace(/\.+$/, "")
+    if (isBudapest(place)) return true
+  }
+  return false
+}
+
 function capitalKey(key: string): boolean {
   if (!key) return false
   if (key.startsWith("budapest")) return true
