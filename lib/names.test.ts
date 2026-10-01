@@ -147,28 +147,15 @@ test("a town or a county does not need a surname", () => {
     strictness: "laza",
     hely: "Csacza",
   })
-  assert.equal(kept.shown.some((hit) => hit.entry.id === "sz-unread"), true)
-  const knownOnly = searchPlaces(withUnread, {
-    query: "",
-    field: "mind",
+  assert.equal(kept.shown.some((hit) => hit.entry.id === "sz-unread"), false)
+  assert.equal(kept.shown.some((hit) => hit.entry.uj === "Korányi"), true)
+  const named = searchNames(withUnread, {
+    query: "Rejtett",
+    field: "eredeti",
     corpus: "mind",
-    strictness: "laza",
-    hely: "Csacza",
-    placeRows: "known",
+    strictness: "szoros",
   })
-  assert.equal(knownOnly.shown.some((hit) => hit.entry.id === "sz-unread"), false)
-  assert.equal(knownOnly.shown.some((hit) => hit.entry.uj === "Korányi"), true)
-  assert.ok(knownOnly.unread >= 1)
-  const unreadOnly = searchPlaces(withUnread, {
-    query: "",
-    field: "mind",
-    corpus: "mind",
-    strictness: "laza",
-    hely: "Csacza",
-    placeRows: "unread",
-  })
-  assert.equal(unreadOnly.shown.some((hit) => hit.entry.id === "sz-unread"), true)
-  assert.equal(unreadOnly.shown.some((hit) => hit.entry.uj === "Korányi"), false)
+  assert.equal(named.shown.some((hit) => hit.entry.id === "sz-unread"), true)
 
   const county = searchPlaces(indexed, {
     query: "",

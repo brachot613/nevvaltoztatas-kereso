@@ -328,9 +328,8 @@ function passesFilters(entry: IndexedEntry, options: SearchOptions): boolean {
   if (options.evTol != null && (entry.ev == null || entry.ev < options.evTol)) return false
   if (options.evIg != null && (entry.ev == null || entry.ev > options.evIg)) return false
   if (options.keresztnev?.trim() && !matchesGiven(entry, options.keresztnev)) return false
-  const unreadPlace = !entry.hely?.trim() && !entry.megye?.trim() && entry.id.startsWith("sz-")
-  if (options.hely?.trim() && !matchesTown(entry, options.hely) && !unreadPlace) return false
-  if (options.megye?.trim() && !sameCounty(entry.megye ?? "", options.megye) && !unreadPlace) return false
+  if (options.hely?.trim() && !matchesTown(entry, options.hely)) return false
+  if (options.megye?.trim() && !sameCounty(entry.megye ?? "", options.megye)) return false
   if (options.budapestNelkul && inBudapest(entry)) return false
   return true
 }
